@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-
 import Link from "next/link";
 import { CheckCircle, ShieldAlert, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 export default function VerifyEmailPage() {
   const [code, setCode] = useState("");
@@ -39,34 +41,34 @@ export default function VerifyEmailPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-center text-foreground">Verify Email</h2>
+      <h2 className="text-lg font-bold text-center text-foreground">Verify Email</h2>
 
       {verified ? (
-        <div className="p-4 bg-success/10 border border-success/20 rounded-xl space-y-3 text-center">
-          <CheckCircle className="h-8 w-8 text-success mx-auto" />
-          <p className="text-xs text-foreground font-semibold">{message}</p>
+        <Alert variant="success" className="text-center space-y-2">
+          <CheckCircle className="h-6 w-6 text-success mx-auto" />
+          <AlertTitle className="text-sm">Account Verified</AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
           <div className="pt-2">
-            <Link
-              href="/dashboard"
-              className="bg-primary text-primary-foreground font-semibold px-4 py-2 rounded-xl text-xs inline-block"
-            >
-              Go to Dashboard
+            <Link href="/dashboard">
+              <Button variant="primary" size="sm">
+                Go to Dashboard
+              </Button>
             </Link>
           </div>
-        </div>
+        </Alert>
       ) : (
-        <form onSubmit={handleVerify} className="space-y-4">
-          <p className="text-xs text-muted-foreground leading-relaxed text-center">
-            We have sent a verification code to your email. Enter it below to activate your account.
+        <form onSubmit={handleVerify} className="space-y-3">
+          <p className="text-xs text-muted-foreground text-center">
+            Enter the 6-digit verification code sent to your email.
           </p>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-xs font-semibold">Verification Code</label>
-            <input
+            <Input
               type="text"
               required
               placeholder="e.g. 123456"
-              className="w-full text-center tracking-widest font-bold text-lg px-3.5 py-2 rounded-xl bg-muted border border-border focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary text-foreground"
+              className="text-center tracking-widest font-mono text-base font-bold"
               value={code}
               onChange={(e) => setCode(e.target.value)}
             />
@@ -78,14 +80,15 @@ export default function VerifyEmailPage() {
             )}
           </div>
 
-          <button
+          <Button
             type="submit"
+            variant="primary"
+            className="w-full font-semibold mt-2"
             disabled={loading}
-            className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20 cursor-pointer disabled:opacity-50"
           >
-            {loading ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : null}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
             <span>Verify Code</span>
-          </button>
+          </Button>
         </form>
       )}
     </div>

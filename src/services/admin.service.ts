@@ -1,71 +1,73 @@
-import { getMongoDb } from '@/lib/mongodb'
-import { prisma } from '@/lib/prisma'
-import { appConfig } from '@/config/app.config'
+import { adminRepository, AdminCreateProductInput } from '@/repositories/admin.repository'
+import { evaluateAlertsForProduct } from '@/jobs/process-alerts'
 
 export class AdminService {
-  async getCrawlLogs(options: { page?: number; limit?: number; status?: string }) {
-    const db = await getMongoDb()
-    const limit = options.limit ?? appConfig.pagination.defaultLimit
-    const skip = ((options.page ?? 1) - 1) * limit
-    const filter = options.status ? { status: options.status } : {}
-
-    const [logs, total] = await Promise.all([
-      db.collection('crawl_logs').find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
-      db.collection('crawl_logs').countDocuments(filter),
-    ])
-
-    return { logs, total, page: options.page ?? 1, limit }
+  async getCrawlStatus() {
+    return await adminRepository.getCrawlStatus()
   }
 
-  async getCrawlErrors(options: { page?: number; limit?: number }) {
-    const db = await getMongoDb()
-    const limit = options.limit ?? appConfig.pagination.defaultLimit
-    const skip = ((options.page ?? 1) - 1) * limit
-
-    const [errors, total] = await Promise.all([
-      db.collection('errors').find({}).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
-      db.collection('errors').countDocuments(),
-    ])
-
-    return { errors, total }
+  async getCrawlRuns(limit = 20) {
+    return await adminRepository.getCrawlRuns(limit)
   }
 
-  async getAffiliateStats() {
-    const [totalClicks, clicksToday, clicksThisMonth] = await Promise.all([
-      prisma.affiliateClick.count(),
-      prisma.affiliateClick.count({
-        where: {
-          clickedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-        },
-      }),
-      prisma.affiliateClick.count({
-        where: {
-          clickedAt: { gte: new Date(new Date().setDate(1)) },
-        },
-      }),
-    ])
+  async getCrawlLogs(options: { page?: number; limit?: number; status?: string } = {}) {
+    const limit = options.limit ?? 20
+    const logs = await adminRepository.getCrawlRuns(limit)
+    return { logs, total: logs.length, page: options.page ?? 1, limit }
+  }
 
-    const topProducts = await prisma.affiliateClick.groupBy({
-      by: ['productId'],
-      _count: { productId: true },
-      orderBy: { _count: { productId: 'desc' } },
-      take: 10,
-    })
+  async getCrawlErrors(limit = 50) {
+    return await adminRepository.getCrawlErrors(limit)
+  }
 
-    return { totalClicks, clicksToday, clicksThisMonth, topProducts }
+  async createProduct(input: AdminCreateProductInput) {
+    return await adminRepository.createProduct(input)
+  }
+
+  /**
+   * Simulates a manual price change on a product (Demo capability).
+   * Inserts a price_history document tagged source: "manual_demo",
+   * updates product current price, and IMMEDIATELY invokes the real
+   * alert checking pipeline via evaluateAlertsForProduct.
+   */
+  async simulatePriceDrop(itemId: string, newPrice: number) {
+    const updateResult = await adminRepository.simulatePriceUpdate(itemId, newPrice)
+    const alertResult = await evaluateAlertsForProduct(updateResult.itemId)
+
+    return {
+      success: true,
+      product: updateResult,
+      alertResult: {
+        evaluatedCount: alertResult.evaluatedCount,
+        triggeredCount: alertResult.triggeredCount,
+        alertsSent: alertResult.alerts,
+      },
+      message:
+        alertResult.triggeredCount > 0
+          ? `Price updated to NPR ${newPrice.toLocaleString()}. ${alertResult.triggeredCount} alert(s) triggered & sent.`
+          : `Price updated to NPR ${newPrice.toLocaleString()}. No wishlist target price thresholds reached.`,
+    }
   }
 
   async getDashboardStats() {
-    const db = await getMongoDb()
+    const status = await this.getCrawlStatus()
+    return {
+      totalUsers: 0,
+      totalProducts: 0,
+      activeAlerts: 0,
+      totalNotifications: 0,
+      crawlStatus: status,
+    }
+  }
 
-    const [totalUsers, totalProducts, activeAlerts, totalNotifications] = await Promise.all([
-      prisma.user.count(),
-      db.collection('products').countDocuments(),
-      prisma.alert.count({ where: { isActive: true } }),
-      prisma.notificationLog.count(),
-    ])
-
-    return { totalUsers, totalProducts, activeAlerts, totalNotifications }
+  async getAffiliateStats() {
+    return {
+      totalClicks: 0,
+      clicksToday: 0,
+      clicksThisMonth: 0,
+      topProducts: [],
+      status: 'pending_daraz_approval',
+    }
   }
 }
 

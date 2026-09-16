@@ -9,14 +9,14 @@ import {
   Bell,
   CheckCircle,
   PiggyBank,
-  TrendingDown,
   ArrowRight,
   ShieldCheck
 } from "lucide-react";
 import Link from "next/link";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
-// Mock monthly savings chart
 const MOCK_SAVINGS_HISTORY = [
   { month: "Jan", saved: 1200 },
   { month: "Feb", saved: 2500 },
@@ -35,34 +35,33 @@ export default function DashboardOverviewPage() {
   const triggeredAlerts = alerts.filter((a) => a.isTriggered).length;
 
   return (
-    <div className="space-y-8 animate-fade-in text-foreground">
-      {/* Header */}
+    <div className="space-y-6 text-foreground">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+        <h1 className="text-2xl font-bold tracking-tight">
           Hello, {user?.fullName}!
         </h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-          Welcome to your price intelligence panel. Check pricing shifts and notifications below.
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Overview of your active price alerts, saved wishlist items, and triggered price drops.
         </p>
       </div>
 
-      {/* Overview Cards */}
+      {/* Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
             title: "Wishlist Items",
             val: wishlistItems.length,
-            desc: "Products tracked locally",
+            desc: "Monitored products",
             icon: Heart,
-            color: "text-rose-500 bg-rose-500/10",
+            variant: "default" as const,
             link: "/dashboard/wishlist",
           },
           {
             title: "Active Alerts",
             val: activeAlerts,
-            desc: "Continuous price crawling",
+            desc: "Continuous price tracking",
             icon: Bell,
-            color: "text-primary bg-primary/10",
+            variant: "info" as const,
             link: "/dashboard/alerts",
           },
           {
@@ -70,33 +69,30 @@ export default function DashboardOverviewPage() {
             val: triggeredAlerts,
             desc: "Bargains matched targets",
             icon: CheckCircle,
-            color: "text-success bg-success/10",
+            variant: "success" as const,
             link: "/dashboard/notifications",
           },
           {
-            title: "Total Saved Amount",
+            title: "Total Savings",
             val: formatCurrency(user?.savedAmount || 0),
             desc: "Based on alert buying",
             icon: PiggyBank,
-            color: "text-emerald-500 bg-emerald-500/10",
+            variant: "warning" as const,
             link: "#",
           },
         ].map((card, idx) => (
-          <div
-            key={idx}
-            className="bg-card border border-border p-5 rounded-2xl shadow-sm flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow relative overflow-hidden group"
-          >
+          <Card key={idx} className="p-4 flex flex-col justify-between space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] sm:text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+              <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
                 {card.title}
               </span>
-              <div className={`p-2 rounded-xl ${card.color}`}>
+              <div className="p-1.5 rounded-md bg-muted text-foreground">
                 <card.icon className="h-4 w-4" />
               </div>
             </div>
 
             <div className="space-y-1">
-              <p className="text-xl sm:text-2xl font-bold">{card.val}</p>
+              <p className="text-xl font-bold font-mono text-foreground">{card.val}</p>
               <div className="flex justify-between items-center text-[10px]">
                 <span className="text-muted-foreground">{card.desc}</span>
                 {card.link !== "#" && (
@@ -107,79 +103,89 @@ export default function DashboardOverviewPage() {
                 )}
               </div>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
 
-      {/* Savings Analytics & Alerts Split */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-        {/* Savings Curve Chart */}
-        <div className="lg:col-span-7 bg-card border border-border p-6 rounded-2xl shadow-sm flex flex-col justify-between">
-          <div className="mb-4">
-            <h3 className="font-bold text-foreground">Cumulative Purchase Savings</h3>
-            <p className="text-xs text-muted-foreground">Approximate savings derived from tracking price thresholds</p>
+      {/* Analytics & History */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <Card className="lg:col-span-7 p-5 flex flex-col justify-between">
+          <div className="mb-3">
+            <CardTitle>Cumulative Savings Curve</CardTitle>
+            <CardDescription>Estimated savings achieved via target price notifications</CardDescription>
           </div>
 
           <div className="h-60 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={MOCK_SAVINGS_HISTORY}>
+              <AreaChart data={MOCK_SAVINGS_HISTORY} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <defs>
                   <linearGradient id="savedGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="month" stroke="#9ca3af" fontSize={10} tickLine={false} />
-                <YAxis stroke="#9ca3af" fontSize={10} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", borderRadius: "12px", fontSize: "11px" }} formatter={(val) => [formatCurrency(val as number), "Saved"]} />
-                <Area type="monotone" dataKey="saved" stroke="#10B981" strokeWidth={2.5} fillOpacity={1} fill="url(#savedGradient)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
+                <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "var(--card)",
+                    borderColor: "var(--border)",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    color: "var(--foreground)"
+                  }}
+                  formatter={(val) => [formatCurrency(val as number), "Saved"]}
+                />
+                <Area type="monotone" dataKey="saved" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#savedGradient)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </Card>
 
-        {/* Quick alerts snapshot */}
-        <div className="lg:col-span-5 bg-card border border-border p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
+        <Card className="lg:col-span-5 p-5 flex flex-col justify-between space-y-4">
           <div>
-            <h3 className="font-bold text-foreground">Triggered Alerts History</h3>
-            <p className="text-xs text-muted-foreground">Recently matches that met your target levels</p>
+            <CardTitle>Recent Triggered Alerts</CardTitle>
+            <CardDescription>Latest items that matched your price target</CardDescription>
           </div>
 
-          <div className="space-y-3 flex-1 overflow-y-auto max-h-64 divide-y divide-border/60">
+          <div className="space-y-2 flex-1 overflow-y-auto max-h-56 divide-y divide-border/60">
             {alerts.filter((a) => a.isTriggered).length === 0 ? (
-              <div className="text-center py-10 text-xs text-muted-foreground">
-                No alerts triggered yet. You will see matches here when prices slide.
+              <div className="text-center py-8 text-xs text-muted-foreground">
+                No alerts triggered yet. Matches will display here as prices fall.
               </div>
             ) : (
               alerts.filter((a) => a.isTriggered).slice(0, 3).map((alert) => (
-                <div key={alert.id} className="pt-2 text-xs flex items-center justify-between gap-3">
+                <div key={alert.id} className="pt-2 text-xs flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <img
                       src={alert.productImage}
                       alt={alert.productName}
-                      className="h-8 w-8 rounded-lg object-cover bg-muted"
+                      className="h-8 w-8 rounded-md object-cover bg-muted"
                     />
                     <div className="min-w-0">
-                      <p className="font-semibold text-foreground truncate max-w-[150px]">{alert.productName}</p>
-                      <p className="text-[10px] text-muted-foreground">Target: {formatCurrency(alert.targetPrice)}</p>
+                      <p className="font-semibold text-foreground truncate max-w-[140px]">{alert.productName}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">Target: {formatCurrency(alert.targetPrice)}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-bold text-success">
+                    <span className="text-xs font-bold text-success font-mono">
                       {formatCurrency(alert.currentPrice)}
                     </span>
-                    <span className="text-[9px] text-muted-foreground block">Triggered</span>
+                    <Badge variant="success" className="text-[8px] py-0 px-1 block mt-0.5">
+                      Triggered
+                    </Badge>
                   </div>
                 </div>
               ))
             )}
           </div>
 
-          <div className="p-3 bg-muted rounded-xl flex items-center gap-2.5 text-[10px] text-muted-foreground leading-relaxed">
-            <ShieldCheck className="h-4.5 w-4.5 text-primary shrink-0" />
-            <span>Active monitoring runs securely via cloud background crawler.</span>
+          <div className="p-3 bg-muted/40 rounded-md border border-border flex items-center gap-2 text-[10px] text-muted-foreground">
+            <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+            <span>Crawler schedule checks item prices automatically.</span>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

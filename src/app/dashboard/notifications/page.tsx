@@ -1,19 +1,22 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { Bell, MailCheck, ShieldCheck, Trash2, CheckSquare } from "lucide-react";
-
+import { Bell, MailCheck, ShieldCheck, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useMemo } from "react";
+import { formatNotificationDate } from "@/lib/format";
 
 export default function NotificationsPage() {
   const { notifications, markNotificationRead, clearNotifications } = useAuth();
 
-  // Simulated Email logs
-  const simulatedEmailLogs = [
+  const simulatedEmailLogs = useMemo(() => [
     {
       id: "email-1",
       recipient: "user@dealert.com",
       subject: "Price Drop Alert: iPhone 15 Pro",
-      sentAt: new Date(Date.now() - 3600000).toISOString(), // 1 hr ago
+      sentAt: new Date(1773631000000).toISOString(),
       status: "DELIVERED",
       body: "Good news! iPhone 15 Pro (128GB, Natural Titanium) has hit your target of NPR 175,000. Current price is NPR 172,999 at Oliz Store."
     },
@@ -21,113 +24,128 @@ export default function NotificationsPage() {
       id: "email-2",
       recipient: "user@dealert.com",
       subject: "Welcome to Dealert Nepal!",
-      sentAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+      sentAt: new Date(1773458000000).toISOString(),
       status: "DELIVERED",
       body: "Thank you for creating an account with Dealert. Start comparing online prices and setting alerts to save money."
     }
-  ];
+  ], []);
 
   return (
-    <div className="space-y-8 animate-fade-in text-foreground">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+    <div className="space-y-6 text-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Alert & Email Logs</h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Review triggered alerts notifications and simulated email delivery logs.
+          <h1 className="text-2xl font-bold tracking-tight">Alert & Email Logs</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            History of triggered notifications and email dispatch records.
           </p>
         </div>
 
         {notifications.length > 0 && (
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => notifications.forEach((n) => markNotificationRead(n.id))}
-              className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs font-semibold cursor-pointer"
             >
               Mark All Read
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-8 w-8"
               onClick={clearNotifications}
-              className="p-1.5 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground rounded-lg transition-colors flex items-center justify-center cursor-pointer"
               title="Clear All Notifications"
             >
               <Trash2 className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Side: System Notifications */}
-        <div className="lg:col-span-6 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
-          <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* In-App Notifications */}
+        <Card className="lg:col-span-6 p-5 space-y-4">
+          <div className="flex items-center gap-2">
             <Bell className="h-4 w-4 text-primary" />
-            <span>In-App Notifications</span>
-          </h3>
+            <CardTitle>In-App Notifications</CardTitle>
+          </div>
 
-          <div className="space-y-3.5 divide-y divide-border/50 max-h-[400px] overflow-y-auto pr-1">
+          <div className="space-y-3 divide-y divide-border/60 max-h-[380px] overflow-y-auto pr-1">
             {notifications.length === 0 ? (
-              <div className="text-center py-16 text-xs text-muted-foreground">
-                No notifications logged yet.
+              <div className="text-center py-12 text-xs text-muted-foreground">
+                No notifications recorded yet.
               </div>
             ) : (
-              notifications.map((notif, idx) => (
-                <div
-                  key={notif.id}
-                  onClick={() => markNotificationRead(notif.id)}
-                  className={`pt-3.5 first:pt-0 text-xs cursor-pointer group ${!notif.read ? "bg-primary/5 p-2 rounded-xl border border-primary/10" : ""
+              notifications.map((notif) => {
+                const formattedDate = formatNotificationDate(
+                  notif.sentAt || notif.createdAt || (notif as any).alertedAt || (notif as any).alerted_at
+                );
+                const titleText = notif.title || "Price Alert Triggered";
+                const messageText =
+                  notif.message ||
+                  (notif.email ? `Alert sent to ${notif.email}` : "Price alert triggered for your wishlist item.");
+
+                return (
+                  <div
+                    key={notif.id}
+                    onClick={() => markNotificationRead(notif.id)}
+                    className={`pt-3 first:pt-0 text-xs cursor-pointer ${
+                      !notif.read ? "bg-primary/5 p-2 rounded-md border border-primary/20" : ""
                     }`}
-                >
-                  <div className="flex justify-between items-start mb-1 gap-2">
-                    <span className={`font-bold ${!notif.read ? "text-primary" : "text-foreground"}`}>
-                      {notif.title}
-                    </span>
-                    {!notif.read && (
-                      <span className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1"></span>
+                  >
+                    <div className="flex justify-between items-start mb-1 gap-2">
+                      <span className={`font-semibold ${!notif.read ? "text-primary" : "text-foreground"}`}>
+                        {titleText}
+                      </span>
+                      {!notif.read && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1" />
+                      )}
+                    </div>
+                    <p className="text-muted-foreground leading-relaxed">{messageText}</p>
+                    {formattedDate && (
+                      <span className="text-[9px] text-muted-foreground/80 mt-1 block font-mono">
+                        {formattedDate}
+                      </span>
                     )}
                   </div>
-                  <p className="text-muted-foreground leading-relaxed">{notif.message}</p>
-                  <span className="text-[9px] text-muted-foreground/80 mt-1 block">
-                    {new Date(notif.createdAt).toLocaleString()}
-                  </span>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
-        </div>
+        </Card>
 
-        {/* Right Side: Email Logs */}
-        <div className="lg:col-span-6 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
-          <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+        {/* Email Alert Logs */}
+        <Card className="lg:col-span-6 p-5 space-y-4">
+          <div className="flex items-center gap-2">
             <MailCheck className="h-4 w-4 text-success" />
-            <span>Email Alert Logs</span>
-          </h3>
+            <CardTitle>Email Alert Dispatch Logs</CardTitle>
+          </div>
 
-          <div className="space-y-3.5 divide-y divide-border/50 max-h-[400px] overflow-y-auto pr-1">
-            {simulatedEmailLogs.map((email) => (
-              <div key={email.id} className="pt-3.5 first:pt-0 space-y-1.5 text-xs">
-                <div className="flex justify-between items-center text-[10px] font-bold">
-                  <span className="text-foreground truncate">To: {email.recipient}</span>
-                  <span className="bg-success/10 text-success px-1.5 py-0.5 rounded">
+          <div className="space-y-3 divide-y divide-border/60 max-h-[380px] overflow-y-auto pr-1">
+            {simulatedEmailLogs.map((email: any) => (
+              <div key={email.id} className="pt-3 first:pt-0 space-y-1 text-xs">
+                <div className="flex justify-between items-center text-[10px] font-semibold">
+                  <span className="text-foreground truncate font-mono">To: {email.recipient}</span>
+                  <Badge variant="success" className="text-[8px] py-0 px-1 font-bold">
                     {email.status}
-                  </span>
+                  </Badge>
                 </div>
                 <p className="font-bold text-foreground">{email.subject}</p>
-                <div className="p-2.5 bg-muted rounded-xl text-[11px] text-muted-foreground leading-relaxed whitespace-pre-line font-mono">
+                <div className="p-2.5 bg-muted/50 rounded-md text-[11px] text-muted-foreground leading-relaxed font-mono">
                   {email.body}
                 </div>
-                <span className="text-[9px] text-muted-foreground/80 block">
+                <span className="text-[9px] text-muted-foreground/80 block font-mono">
                   Dispatched {new Date(email.sentAt).toLocaleString()}
                 </span>
               </div>
             ))}
           </div>
 
-          <div className="p-3 bg-muted rounded-xl flex items-center gap-2.5 text-[10px] text-muted-foreground leading-relaxed">
-            <ShieldCheck className="h-4.5 w-4.5 text-success shrink-0" />
-            <span>All outgoing alert emails use certified transactional gateways.</span>
+          <div className="p-2.5 bg-muted/40 rounded-md border border-border flex items-center gap-2 text-[10px] text-muted-foreground">
+            <ShieldCheck className="h-4 w-4 text-success shrink-0" />
+            <span>Alert notifications use secure email delivery channels.</span>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

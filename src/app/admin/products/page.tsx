@@ -1,207 +1,489 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ProductService } from "@/actions/product.actions";
-import { Product } from "@/types/product";
-import { formatCurrency } from "@/lib/format";
-import { Search, Edit, Eye, Filter, X } from "lucide-react";
-import Link from "next/link";
-import { CATEGORIES } from "@/lib/constants";
+import { useEffect, useState } from "react";
+import {
+  FolderTree,
+  Search,
+  Plus,
+  TrendingDown,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  FlaskConical,
+  RefreshCw,
+  X,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+
+interface Product {
+  id: string;
+  itemId: string;
+  name: string;
+  currentPrice: number;
+  originalPrice: number;
+  discountPercentage: number;
+  imageUrl: string;
+  productUrl: string;
+  category: string;
+  sellerName?: string;
+  lastCrawledAt?: string;
+}
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
+  const [loading, setLoading] = useState(true);
 
-  // Price Update Overlay
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  // Add Product Modal state
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState({
+    title: "",
+    url: "",
+    category: "Laptops",
+    seller_name: "Daraz Official",
+    current_price: "",
+  });
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState("");
+
+  // Simulate Price Modal state
+  const [simulateProduct, setSimulateProduct] = useState<Product | null>(null);
   const [newPrice, setNewPrice] = useState("");
+  const [simLoading, setSimLoading] = useState(false);
+  const [simResult, setSimResult] = useState<{
+    message: string;
+    alertsSent: Array<{ userEmail: string; triggerType: string; productName: string }>;
+  } | null>(null);
+  const [simError, setSimError] = useState("");
 
-  const loadProducts = () => {
-    ProductService.getProducts().then(setProducts);
-  };
-
-  useEffect(() => {
-    loadProducts();
-  }, []);
-
-  const handleUpdatePrice = async (e: React.FormEvent, id: string) => {
-    e.preventDefault();
-    if (!newPrice) return;
-
+  const fetchProducts = async (searchQuery = "") => {
+    setLoading(true);
     try {
-      await ProductService.updateProductPrice(id, Number(newPrice));
-      setNewPrice("");
-      setUpdatingId(null);
-      loadProducts(); // Refresh list
-    } catch {
-      // ignore
+      const url = searchQuery
+        ? `/api/admin/products?search=${encodeURIComponent(searchQuery)}`
+        : `/api/admin/products`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setProducts(data.products || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch admin products:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const filtered = products.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = category === "All" || p.category === category;
-    return matchesSearch && matchesCategory;
-  });
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchProducts(search);
+  };
+
+  // Add Product submit handler
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddError("");
+    setAddLoading(true);
+
+    try {
+      const res = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: addForm.title,
+          url: addForm.url,
+          category: addForm.category,
+          seller_name: addForm.seller_name,
+          current_price: parseFloat(addForm.current_price),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create product");
+      }
+
+      setIsAddOpen(false);
+      setAddForm({
+        title: "",
+        url: "",
+        category: "Laptops",
+        seller_name: "Daraz Official",
+        current_price: "",
+      });
+      fetchProducts(search);
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "Error creating product");
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  // Simulate Price Drop submit handler
+  const handleSimulateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!simulateProduct) return;
+    setSimError("");
+    setSimResult(null);
+    setSimLoading(true);
+
+    try {
+      const priceNum = parseFloat(newPrice);
+      const targetItemId = simulateProduct.itemId || simulateProduct.id;
+
+      const res = await fetch(`/api/admin/products/${encodeURIComponent(targetItemId)}/simulate-price`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPrice: priceNum }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Price simulation failed");
+      }
+
+      setSimResult({
+        message: data.message,
+        alertsSent: data.alertResult?.alertsSent || [],
+      });
+      fetchProducts(search);
+    } catch (err) {
+      setSimError(err instanceof Error ? err.message : "Simulation failed");
+    } finally {
+      setSimLoading(false);
+    }
+  };
 
   return (
-    <div className="space-y-8 animate-fade-in text-foreground">
+    <div className="space-y-6 text-foreground">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">Products Database</h1>
-        <p className="text-xs text-muted-foreground mt-1">
-          Review monitored product assets. You can manually adjust catalog prices here to verify price drop triggers and alerts.
-        </p>
-      </div>
-
-      {/* Filters Bar */}
-      <div className="flex flex-col sm:flex-row gap-4 p-4 bg-card border border-border rounded-xl justify-between items-stretch sm:items-center">
-        <div className="flex-1 max-w-sm relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search products..."
-            className="w-full pl-9 pr-4 py-2 text-xs rounded-lg bg-muted border border-border focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary text-foreground"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <FolderTree className="h-6 w-6 text-primary" />
+            <span>Product Management & Live Demo Tools</span>
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Manually add tracked products or simulate price changes live to test the wishlist alert pipeline.
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-          <select
-            className="bg-muted border border-border text-xs rounded-lg px-2.5 py-1.5 focus:outline-none text-foreground font-medium"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="All">All Categories</option>
-            {CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+          <Button variant="outline" size="sm" onClick={() => fetchProducts(search)} className="h-9">
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            <span>Refresh</span>
+          </Button>
+
+          <Button variant="primary" size="sm" onClick={() => setIsAddOpen(true)} className="h-9 gap-1.5">
+            <Plus className="h-4 w-4" />
+            <span>Add Product</span>
+          </Button>
         </div>
       </div>
 
-      {/* Table grid */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs sm:text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40 text-muted-foreground text-[10px] uppercase font-bold tracking-wider">
-                <th className="p-4">Name & Seller</th>
-                <th className="p-4">Category</th>
-                <th className="p-4">Current Price</th>
-                <th className="p-4 text-center">Discount %</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-xs text-muted-foreground">
-                    No products matching filter criteria.
-                  </td>
-                </tr>
+      {/* Search Bar */}
+      <Card className="p-4">
+        <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search products by title, category, or seller..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 text-xs h-9"
+            />
+          </div>
+          <Button type="submit" variant="secondary" size="sm" className="h-9 text-xs px-4">
+            Search
+          </Button>
+        </form>
+      </Card>
+
+      {/* Products Table */}
+      <Card className="p-5">
+        <div className="overflow-x-auto border border-border rounded-lg">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead className="text-xs">Product Details</TableHead>
+                <TableHead className="text-xs">Category</TableHead>
+                <TableHead className="text-xs">Seller</TableHead>
+                <TableHead className="text-xs text-right">Current Price (NPR)</TableHead>
+                <TableHead className="text-xs text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
+                    <p className="text-xs text-muted-foreground mt-2">Loading products...</p>
+                  </TableCell>
+                </TableRow>
+              ) : products.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-xs text-muted-foreground">
+                    No products found matching search query.
+                  </TableCell>
+                </TableRow>
               ) : (
-                filtered.map((p) => (
-                  <tr key={p.id} className="hover:bg-muted/10 transition-colors">
-                    {/* Name */}
-                    <td className="p-4">
-                      <div className="font-bold text-foreground line-clamp-1">{p.name}</div>
-                      <span className="text-[9px] bg-muted px-1.5 py-0.5 rounded text-foreground font-medium mt-1 inline-block">
-                        {p.sellerName}
-                      </span>
-                    </td>
-
-                    {/* Category */}
-                    <td className="p-4">
-                      <span className="text-muted-foreground">{p.category}</span>
-                    </td>
-
-                    {/* Price */}
-                    <td className="p-4 font-bold text-foreground">
-                      {formatCurrency(p.currentPrice)}
-                    </td>
-
-                    {/* Discount */}
-                    <td className="p-4 text-center">
-                      <span className="bg-destructive/10 text-destructive text-[10px] font-bold px-2 py-0.5 rounded-full inline-block">
-                        {p.discountPercentage}%
-                      </span>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Edit Override */}
-                        <button
-                          onClick={() => {
-                            setNewPrice(p.currentPrice.toString());
-                            setUpdatingId(p.id || null);
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-muted text-primary hover:text-primary-foreground flex items-center gap-1 cursor-pointer"
-                          title="Override Price"
-                        >
-                          <Edit className="h-4 w-4" />
-                          <span className="text-[10px] font-bold hidden sm:inline">Override</span>
-                        </button>
-
-                        {/* View Product */}
-                        <Link
-                          href={`/products/${p.id}`}
-                          className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
-                          title="View Details"
-                        >
-                          <Eye className="h-4.5 w-4.5" />
-                        </Link>
+                products.map((p) => (
+                  <TableRow key={p.id || p.itemId} className="text-xs">
+                    <TableCell className="max-w-[300px]">
+                      <div className="font-semibold text-foreground truncate">{p.name}</div>
+                      <div className="text-[10px] text-muted-foreground font-mono truncate">
+                        ID: {p.itemId || p.id}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px] capitalize">
+                        {p.category}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{p.sellerName || "Daraz"}</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-foreground">
+                      NPR {p.currentPrice?.toLocaleString() ?? 0}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] gap-1 hover:bg-primary/10 border-primary/30 text-primary"
+                          onClick={() => {
+                            setSimulateProduct(p);
+                            setNewPrice(String(p.currentPrice));
+                            setSimResult(null);
+                            setSimError("");
+                          }}
+                        >
+                          <TrendingDown className="h-3 w-3 text-primary" />
+                          <span>Simulate Price Drop</span>
+                          <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                            Demo Tool
+                          </Badge>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
-      </div>
+      </Card>
 
-      {/* Override Price Modal */}
-      {updatingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-6 shadow-2xl relative space-y-4 text-foreground animate-scale-up">
-            <button
-              onClick={() => setUpdatingId(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            <div>
-              <h3 className="font-bold text-base">Crawl Price Override</h3>
-              <p className="text-xs text-muted-foreground">
-                Set a mock price level. This represents the next crawled value and triggers notifications if targets are breached.
-              </p>
+      {/* MODAL 1: Add Product */}
+      {isAddOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in-50 zoom-in-95">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold flex items-center gap-2 text-foreground">
+                <Plus className="h-4 w-4 text-primary" />
+                <span>Add Tracked Product</span>
+              </h2>
+              <button
+                onClick={() => setIsAddOpen(false)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Manually insert a product for Dealert price tracking. Generates initial price history tagged <code className="text-foreground bg-muted px-1 rounded font-mono">source: "manual_demo"</code>.
+            </p>
 
-            <form onSubmit={(e) => handleUpdatePrice(e, updatingId)} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold">New Price (NPR)</label>
-                <input
-                  type="number"
+            <form onSubmit={handleAddSubmit} className="space-y-3.5 py-2">
+              {addError && (
+                <div className="p-2.5 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{addError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-semibold text-foreground mb-1 block">Product Title</label>
+                <Input
                   required
-                  placeholder="Enter new price..."
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-muted border border-border focus:outline-none focus:ring-2 focus:ring-primary/40 text-foreground"
-                  value={newPrice}
-                  onChange={(e) => setNewPrice(e.target.value)}
+                  type="text"
+                  placeholder="e.g. Apple MacBook Air M3 (8GB / 256GB)"
+                  value={addForm.title}
+                  onChange={(e) => setAddForm({ ...addForm, title: e.target.value })}
+                  className="text-xs h-9"
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1 block">Category</label>
+                  <Input
+                    required
+                    type="text"
+                    placeholder="e.g. Laptops"
+                    value={addForm.category}
+                    onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}
+                    className="text-xs h-9"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1 block">Initial Price (NPR)</label>
+                  <Input
+                    required
+                    type="number"
+                    placeholder="e.g. 145000"
+                    value={addForm.current_price}
+                    onChange={(e) => setAddForm({ ...addForm, current_price: e.target.value })}
+                    className="text-xs h-9 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1 block">Seller Name</label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. Oliz Store"
+                    value={addForm.seller_name}
+                    onChange={(e) => setAddForm({ ...addForm, seller_name: e.target.value })}
+                    className="text-xs h-9"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1 block">Product URL</label>
+                  <Input
+                    type="url"
+                    placeholder="https://www.daraz.com.np/products/..."
+                    value={addForm.url}
+                    onChange={(e) => setAddForm({ ...addForm, url: e.target.value })}
+                    className="text-xs h-9"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsAddOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" size="sm" disabled={addLoading}>
+                  {addLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Product"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: Simulate Price Drop */}
+      {simulateProduct && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in-50 zoom-in-95">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold flex items-center gap-2 text-foreground">
+                <FlaskConical className="h-4 w-4 text-amber-500" />
+                <span>Simulate Price Drop</span>
+                <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
+                  Demo Tool
+                </Badge>
+              </h2>
               <button
-                type="submit"
-                className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg"
+                onClick={() => setSimulateProduct(null)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md"
               >
-                <span>Trigger Price Sync</span>
+                <X className="h-4 w-4" />
               </button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Manually trigger a price drop on <span className="font-semibold text-foreground">{simulateProduct.name}</span> to test live wishlist email alerts.
+            </p>
+
+            <form onSubmit={handleSimulateSubmit} className="space-y-4 py-2">
+              {simError && (
+                <div className="p-2.5 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{simError}</span>
+                </div>
+              )}
+
+              {simResult && (
+                <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-950 dark:text-emerald-100 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-xs">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>{simResult.message}</span>
+                  </div>
+
+                  {simResult.alertsSent.length > 0 && (
+                    <div className="text-[11px] space-y-1 pt-1 border-t border-emerald-500/20">
+                      <div className="font-medium text-muted-foreground">Triggered Notifications:</div>
+                      {simResult.alertsSent.map((a, idx) => (
+                        <div key={idx} className="flex items-center justify-between font-mono bg-background/50 px-2 py-1 rounded">
+                          <span>Alert sent to {a.userEmail}</span>
+                          <Badge variant="outline" className="text-[9px] uppercase">
+                            {a.triggerType}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="bg-muted/50 p-3 rounded-lg border border-border space-y-1 text-xs">
+                <div className="text-muted-foreground">Current DB Price:</div>
+                <div className="text-sm font-bold font-mono text-foreground">
+                  NPR {simulateProduct.currentPrice?.toLocaleString()}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-foreground mb-1 block">New Simulated Price (NPR)</label>
+                <Input
+                  required
+                  type="number"
+                  placeholder="Enter lower price to trigger alert..."
+                  value={newPrice}
+                  onChange={(e) => setNewPrice(e.target.value)}
+                  className="text-xs h-9 font-mono"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Submitting writes a new price history record tagged <code className="text-foreground bg-muted px-1 rounded font-mono">source: "manual_demo"</code> and immediately invokes <code className="text-foreground bg-muted px-1 rounded font-mono">evaluateAlertsForProduct()</code>.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <Button type="button" variant="outline" size="sm" onClick={() => setSimulateProduct(null)}>
+                  Close
+                </Button>
+                <Button type="submit" variant="primary" size="sm" disabled={simLoading} className="gap-1.5">
+                  {simLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <TrendingDown className="h-4 w-4" />
+                      <span>Run Alert Pipeline</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             </form>
           </div>
         </div>

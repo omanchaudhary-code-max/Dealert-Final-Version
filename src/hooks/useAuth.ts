@@ -13,11 +13,15 @@ export interface User {
 
 export interface Notification {
   id: string
-  title: string
-  message: string
-  read: boolean
+  title?: string
+  message?: string
+  read?: boolean
   link?: string
-  createdAt: string
+  createdAt?: string
+  sentAt?: string
+  alertedAt?: string
+  alerted_at?: string
+  email?: string
 }
 
 interface AuthStore {

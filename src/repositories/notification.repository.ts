@@ -24,6 +24,24 @@ export class NotificationRepository {
   async updateStatus(id: string, status: 'SENT' | 'FAILED'): Promise<NotificationLog> {
     return prisma.notificationLog.update({ where: { id }, data: { status } })
   }
+
+  async findRecentSent(userId: string, alertId: string, days = 7): Promise<NotificationLog | null> {
+    try {
+      const sevenDaysAgo = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+      return await prisma.notificationLog.findFirst({
+        where: {
+          userId,
+          alertId,
+          status: 'SENT',
+          sentAt: { gte: sevenDaysAgo },
+        },
+        orderBy: { sentAt: 'desc' },
+      })
+    } catch (err) {
+      console.warn('Prisma notification fallback:', err instanceof Error ? err.message : err)
+      return null
+    }
+  }
 }
 
 export const notificationRepository = new NotificationRepository()

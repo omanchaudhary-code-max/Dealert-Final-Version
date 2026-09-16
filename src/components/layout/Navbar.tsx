@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useRef, useEffect, useMemo } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   Sun,
@@ -13,15 +14,20 @@ import {
   Heart,
   User,
   LogOut,
+  ShieldCheck,
+  LayoutDashboard,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useWishlist } from "@/hooks/useWishlist";
-import { INITIAL_PRODUCTS } from "@/lib/constants";
+import { useProducts } from "@/hooks/useProducts";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { formatCurrency, formatNotificationDate } from "@/lib/format";
 
 export default function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
 
   const {
     user,
@@ -43,18 +49,13 @@ export default function Navbar() {
   const profileRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Derived directly from searchQuery — no effect, no state.
-  const searchSuggestions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (q.length <= 1) return [];
-    return INITIAL_PRODUCTS.filter((p) =>
-      p.name.toLowerCase().includes(q)
-    ).slice(0, 5);
-  }, [searchQuery]);
+  const trimmedQuery = searchQuery.trim();
+  const { data: dbSearchResults = [] } = useProducts(
+    trimmedQuery.length >= 2 ? { search: trimmedQuery, limit: 5 } : undefined
+  );
 
-  // -------------------------
-  // Theme toggle
-  // -------------------------
+  const searchSuggestions = trimmedQuery.length >= 2 ? dbSearchResults : [];
+
   const toggleTheme = () => {
     const next = theme === "light" ? "dark" : "light";
     setTheme(next);
@@ -63,9 +64,6 @@ export default function Navbar() {
     }
   };
 
-  // -------------------------
-  // Click outside handler
-  // -------------------------
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
@@ -85,262 +83,319 @@ export default function Navbar() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      router.push(`/products?search=${encodeURIComponent(searchQuery)}`);
+      router.push(`/deals?search=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery("");
+      setMobileMenuOpen(false);
     }
   };
 
-  const handleSuggestionClick = (id: string) => {
-    router.push(`/products/${id}`);
+  const handleSuggestionClick = (name: string) => {
+    router.push(`/deals?search=${encodeURIComponent(name)}`);
     setSearchQuery("");
+    setMobileMenuOpen(false);
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // -------------------------
-  // UI
-  // -------------------------
-  return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/85 backdrop-blur-md">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+  const navLinks = [
+    { href: "/deals", label: "Deals" },
+    { href: "/price-index", label: "Price Index" },
+    { href: "/fake-page-detector", label: "Fake Page Check" },
+    { href: "/pricing", label: "Pricing" },
+  ];
 
-        {/* Left Side: Logo & Desktop Navigation */}
-        <div className="flex items-center gap-6 lg:gap-8">
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-xs">
+      <div className="container mx-auto px-4 h-14 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center space-x-2 shrink-0">
-          
-          <Image
-            src="/dealert_logo.png"
-            alt="Dealert"
-            width={100}
-            height={40}
-            className="rounded-3xl"
-            style={{ height: "40px", width: "auto" }}
-          />
+            <Image
+              src="/dealert_logo.png"
+              alt="Dealert"
+              width={110}
+              height={32}
+              priority
+              className="h-8 w-auto object-contain"
+            />
           </Link>
 
-          <nav className="hidden lg:flex items-center space-x-5 text-sm font-semibold text-muted-foreground">
-            <Link href="/products" className="hover:text-primary transition-colors py-1 px-2 rounded-lg hover:bg-muted/40">
-              Products
-            </Link>
-            <Link href="/deals" className="hover:text-primary transition-colors py-1 px-2 rounded-lg hover:bg-muted/40">
-              Deals
-            </Link>
-            <Link href="/categories" className="hover:text-primary transition-colors py-1 px-2 rounded-lg hover:bg-muted/40">
-              Categories
-            </Link>
-            <Link href="/fake-page-detector" className="hover:text-primary transition-colors py-1 px-2 rounded-lg hover:bg-muted/40">
-              Fake Page Detector
-            </Link>
+          <nav className="hidden lg:flex items-center space-x-1 text-sm font-medium">
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`px-3 py-1.5 rounded-md transition-colors ${
+                    isActive
+                      ? "text-primary font-semibold bg-primary/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
         </div>
 
-        {/* Search */}
-        <div ref={searchRef} className="hidden md:flex flex-1 max-w-md relative">
+        <div ref={searchRef} className="hidden md:flex flex-1 max-w-sm relative">
           <form onSubmit={handleSearchSubmit} className="w-full">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search products..."
-                className="w-full pl-9 pr-4 py-2 rounded-full bg-muted border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                placeholder="Search Daraz products..."
+                className="w-full pl-9 pr-4 py-1.5 rounded-md bg-muted/60 border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
               />
             </div>
           </form>
 
           {searchSuggestions.length > 0 && (
-            <div className="absolute top-12 left-0 right-0 bg-background border rounded-xl shadow-lg z-50">
+            <div className="absolute top-11 left-0 right-0 bg-card border border-border rounded-md shadow-md z-50 py-1 overflow-hidden">
               {searchSuggestions.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => handleSuggestionClick(item.id)}
-                  className="w-full text-left px-3 py-2 hover:bg-muted flex justify-between text-xs text-foreground"
+                  onClick={() => handleSuggestionClick(item.name)}
+                  className="w-full text-left px-3 py-2 hover:bg-muted flex items-center justify-between text-xs text-foreground cursor-pointer transition-colors"
                 >
-                  <span>{item.name}</span>
+                  <div className="flex items-center gap-2 truncate pr-2">
+                    <span className="truncate font-medium">{item.name}</span>
+                    {item.category && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground uppercase shrink-0">
+                        {item.category}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono text-primary font-bold shrink-0">
+                    {formatCurrency(item.currentPrice)}
+                  </span>
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3">
-
-          {/* Theme */}
-          <button onClick={toggleTheme} className="p-2 cursor-pointer text-muted-foreground hover:text-foreground">
-            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </button>
-
-          {/* Wishlist */}
-          <Link
-            href={isAuthenticated ? "/dashboard/wishlist" : "/login?redirect=/dashboard/wishlist"}
-            className="relative p-2 text-muted-foreground hover:text-foreground"
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            title="Toggle theme"
+            aria-label="Toggle theme"
           >
-            <Heart className="h-5 w-5" />
-            {wishlistItems.length > 0 && (
-              <span className="absolute -top-1 -right-1 text-xs bg-red-500 text-white rounded-full px-1">
-                {wishlistItems.length}
-              </span>
-            )}
+            {theme === "dark" ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
+          </Button>
+
+          <Link href={isAuthenticated ? "/dashboard/wishlist" : "/login?redirect=/dashboard/wishlist"}>
+            <Button variant="ghost" size="icon" className="relative" title="Wishlist" aria-label="Wishlist">
+              <Heart className="h-4 w-4 text-muted-foreground" />
+              {wishlistItems.length > 0 && (
+                <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
+                  {wishlistItems.length}
+                </span>
+              )}
+            </Button>
           </Link>
 
-          {/* Notifications */}
           <div ref={notifRef} className="relative">
-            <button onClick={() => setNotifOpen(!notifOpen)} className="p-2 cursor-pointer relative text-muted-foreground hover:text-foreground">
-              <Bell className="h-5 w-5" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setNotifOpen(!notifOpen)}
+              className="relative"
+              title="Notifications"
+              aria-label="Notifications"
+            >
+              <Bell className="h-4 w-4 text-muted-foreground" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 text-xs bg-red-500 text-white rounded-full px-1">
+                <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground flex items-center justify-center">
                   {unreadCount}
                 </span>
               )}
-            </button>
+            </Button>
 
             {notifOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-lg z-50 py-2">
+              <div className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-lg shadow-lg z-50 py-2">
                 <div className="px-4 py-2 border-b border-border flex justify-between items-center">
-                  <span className="font-semibold text-sm">Notifications</span>
+                  <span className="font-semibold text-xs text-foreground">Notifications</span>
                   {unreadCount > 0 && (
                     <button
-                      onClick={() => notifications.forEach(n => { if (!n.read) markNotificationRead(n.id); })}
-                      className="text-xs text-primary hover:underline font-medium cursor-pointer"
+                      onClick={() => notifications.forEach((n) => { if (!n.read) markNotificationRead(n.id); })}
+                      className="text-[11px] text-primary hover:underline font-medium cursor-pointer"
                     >
                       Mark all read
                     </button>
                   )}
                 </div>
-                <div className="max-h-64 overflow-y-auto">
+                <div className="max-h-64 overflow-y-auto divide-y divide-border/50">
                   {notifications.length === 0 ? (
                     <div className="px-4 py-6 text-center text-xs text-muted-foreground">
                       No notifications yet
                     </div>
                   ) : (
-                    notifications.map((notif) => (
-                      <div
-                        key={notif.id}
-                        onClick={() => {
-                          markNotificationRead(notif.id);
-                          if (notif.link) router.push(notif.link);
-                          setNotifOpen(false);
-                        }}
-                        className={`px-4 py-3 hover:bg-muted cursor-pointer transition-colors border-b border-border/50 last:border-b-0 flex flex-col gap-1 ${
-                          !notif.read ? "bg-primary/5" : ""
-                        }`}
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <span className={`text-xs font-semibold ${!notif.read ? "text-foreground" : "text-muted-foreground"}`}>
-                            {notif.title}
-                          </span>
-                          {!notif.read && <span className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1" />}
+                    notifications.map((notif) => {
+                      const formattedDate = formatNotificationDate(
+                        notif.sentAt || notif.createdAt || (notif as any).alertedAt || (notif as any).alerted_at
+                      );
+                      const titleText = notif.title || "Price Alert Triggered";
+                      const messageText =
+                        notif.message ||
+                        (notif.email ? `Alert sent to ${notif.email}` : "Price alert triggered for your wishlist item.");
+
+                      return (
+                        <div
+                          key={notif.id}
+                          onClick={() => {
+                            markNotificationRead(notif.id);
+                            if (notif.link) router.push(notif.link);
+                            setNotifOpen(false);
+                          }}
+                          className={`px-4 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors flex flex-col gap-0.5 ${
+                            !notif.read ? "bg-primary/5" : ""
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <span className={`text-xs font-semibold ${!notif.read ? "text-foreground" : "text-muted-foreground"}`}>
+                              {titleText}
+                            </span>
+                            {!notif.read && <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1" />}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-snug">{messageText}</p>
+                          {formattedDate && (
+                            <span className="text-[9px] text-muted-foreground/70 mt-0.5 font-mono">
+                              {formattedDate}
+                            </span>
+                          )}
                         </div>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">{notif.message}</p>
-                        <span className="text-[8px] text-muted-foreground/80 mt-1">
-                          {new Date(notif.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Auth */}
           {isAuthenticated ? (
             <div ref={profileRef} className="relative">
-              <button onClick={() => setProfileOpen(!profileOpen)} className="flex items-center gap-2 cursor-pointer">
-                {/* ✅ Next.js Image for avatar — unoptimized since it's a remote pravatar URL */}
-              <Image
-                src={user?.avatarUrl || "https://i.pravatar.cc/40"}
-                alt={user?.fullName || "User"}
-                width={28}
-                height={28}
-                unoptimized
-                className="h-7 w-7 rounded-full object-cover border border-border"
-              />
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-2 cursor-pointer p-1 rounded-md hover:bg-muted transition-colors"
+              >
+                <div className="h-7 w-7 rounded-md bg-primary/20 text-primary border border-primary/30 flex items-center justify-center font-bold text-xs">
+                  {user?.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
+                </div>
               </button>
 
               {profileOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-lg z-50 py-2">
-                  <div className="px-4 py-2 border-b border-border">
+                <div className="absolute right-0 mt-2 w-52 bg-card border border-border rounded-lg shadow-lg z-50 py-1">
+                  <div className="px-3 py-2 border-b border-border">
                     <p className="text-xs font-semibold text-foreground truncate">{user?.fullName}</p>
                     <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
+                    <Badge variant={user?.role === "ADMIN" ? "destructive" : "default"} className="mt-1 text-[9px] py-0 px-1.5">
+                      {user?.role === "ADMIN" ? "Admin" : (user as any)?.tier === "PRO" ? "Pro Tier" : "Free Tier"}
+                    </Badge>
                   </div>
                   <div className="py-1">
-                    <Link href="/dashboard" onClick={() => setProfileOpen(false)} className="flex items-center gap-2 px-4 py-2 text-xs hover:bg-muted text-foreground transition-colors">
-                      <User className="h-3.5 w-3.5" /><span>Dashboard</span>
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-foreground transition-colors"
+                    >
+                      <LayoutDashboard className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>User Dashboard</span>
                     </Link>
-                    <Link href="/dashboard/profile" onClick={() => setProfileOpen(false)} className="flex items-center gap-2 px-4 py-2 text-xs hover:bg-muted text-foreground transition-colors">
-                      <User className="h-3.5 w-3.5" /><span>Account Settings</span>
+                    <Link
+                      href="/dashboard/wishlist"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-foreground transition-colors"
+                    >
+                      <Heart className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>Wishlist</span>
+                    </Link>
+                    <Link
+                      href="/dashboard/profile"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-foreground transition-colors"
+                    >
+                      <User className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>Account Settings</span>
                     </Link>
                     {user?.role === "ADMIN" && (
-                      <Link href="/admin" onClick={() => setProfileOpen(false)} className="flex items-center gap-2 px-4 py-2 text-xs hover:bg-muted text-foreground transition-colors">
-                        <User className="h-3.5 w-3.5" /><span>Admin Portal</span>
+                      <Link
+                        href="/admin"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-foreground transition-colors font-medium text-destructive"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        <span>Admin Portal</span>
                       </Link>
                     )}
                   </div>
-                  <div className="border-t border-border mt-1 pt-1">
+                  <div className="border-t border-border pt-1">
                     <button
-                      onClick={async () => { setProfileOpen(false); await logout(); router.push("/"); }}
-                      className="w-full text-left flex items-center gap-2 px-4 py-2 text-xs hover:bg-destructive/10 text-destructive transition-colors cursor-pointer"
+                      onClick={async () => {
+                        setProfileOpen(false);
+                        await logout();
+                        router.push("/");
+                      }}
+                      className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-destructive/10 text-destructive transition-colors cursor-pointer"
                     >
-                      <LogOut className="h-3.5 w-3.5" /><span>Sign Out</span>
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>Sign Out</span>
                     </button>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <Link href="/login" className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-bold rounded-full transition-all shrink-0">
-              Sign In
+            <Link href="/login">
+              <Button size="sm" variant="primary" className="font-semibold text-xs">
+                Sign In
+              </Button>
             </Link>
           )}
 
-          {/* Mobile Menu Button */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 lg:hidden text-muted-foreground hover:text-foreground cursor-pointer"
-            aria-label="Toggle mobile menu"
+            className="lg:hidden"
+            aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-border bg-card/95 backdrop-blur-md py-4">
-          <div className="container mx-auto px-4 flex flex-col gap-4">
-            <div className="block md:hidden">
-              <form onSubmit={handleSearchSubmit} className="w-full">
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search products..."
-                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-muted border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                  />
-                </div>
-              </form>
+        <div className="lg:hidden border-t border-border bg-card p-4 space-y-3">
+          <form onSubmit={handleSearchSubmit} className="w-full">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search Daraz products..."
+                className="w-full pl-9 pr-4 py-2 rounded-md bg-muted border border-border text-xs text-foreground"
+              />
             </div>
-            <nav className="flex flex-col gap-2 font-semibold text-sm">
-              {[
-                { href: "/products", label: "Products" },
-                { href: "/deals", label: "Deals" },
-                { href: "/categories", label: "Categories" },
-                { href: "/fake-page-detector", label: "Fake Page Detector" },
-              ].map(({ href, label }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {label}
-                </Link>
-              ))}
-            </nav>
-          </div>
+          </form>
+          <nav className="flex flex-col space-y-1 font-medium text-sm">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`px-3 py-2 rounded-md ${
+                  pathname === link.href ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       )}
     </header>

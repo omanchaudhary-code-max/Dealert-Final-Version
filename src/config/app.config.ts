@@ -17,4 +17,11 @@ export const appConfig = {
     windowMs: 15 * 60 * 1000, // 15 min
     maxRequests: 100,
   },
+  rapidapi: {
+  key: process.env.RAPIDAPI_KEY!,
+  whoisHost: process.env.RAPIDAPI_WHOIS_HOST!,
+},
+  googleSafeBrowsing: {
+    apiKey: process.env.GOOGLE_SAFE_BROWSING_KEY ?? process.env.GOOGLE_SAFE_BROWSING_API_KEY ?? '',
+  },
 }

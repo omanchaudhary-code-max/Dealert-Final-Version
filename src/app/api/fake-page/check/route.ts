@@ -1,18 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fakePageService } from '@/services/fake-page.service'
-import { fakePageCheckSchema } from '@/validations/fake-page.schema'
+import { runTrustCheck } from '@/lib/trust-score'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { url } = fakePageCheckSchema.parse(body)
+    const body = await request.json().catch(() => ({}))
+    const { url } = body
 
-    const report = await fakePageService.checkUrl(url)
-    return NextResponse.json(report)
-  } catch (error) {
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      return NextResponse.json({ error: 'URL parameter is required' }, { status: 400 })
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+
+    const result = await runTrustCheck(url.trim())
+    return NextResponse.json(result, { status: 200 })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to perform trust check'
+    const status = message.includes('Blocked host') || message.includes('Invalid URL') || message.includes('Domain resolution')
+      ? 400
+      : 500
+
+    return NextResponse.json({ error: message }, { status })
   }
 }

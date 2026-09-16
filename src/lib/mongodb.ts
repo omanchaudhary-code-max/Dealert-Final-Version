@@ -1,34 +1,29 @@
 import { MongoClient, Db } from 'mongodb'
-import { env } from '@/lib/env'
 
-const MONGODB_URI = env.MONGODB_URI
-const DB_NAME = 'daraz_db'
-
-if (!MONGODB_URI) {
-  throw new Error('MONGODB_URI is not defined. Add it to your environment variables.')
-}
-
+const uri = process.env.MONGODB_URI!
 let client: MongoClient
 let clientPromise: Promise<MongoClient>
 
 declare global {
+  // eslint-disable-next-line no-var
   var _mongoClientPromise: Promise<MongoClient> | undefined
 }
 
 if (process.env.NODE_ENV === 'development') {
+  // In dev, Next.js hot-reloads modules — use a global so the client
+  // survives across reloads instead of creating a new one each time.
   if (!global._mongoClientPromise) {
-    client = new MongoClient(MONGODB_URI)
+    client = new MongoClient(uri)
     global._mongoClientPromise = client.connect()
   }
-  clientPromise = global._mongoClientPromise!
+  clientPromise = global._mongoClientPromise
 } else {
-  client = new MongoClient(MONGODB_URI)
+  client = new MongoClient(uri)
   clientPromise = client.connect()
 }
 
 export async function getMongoDb(): Promise<Db> {
   const client = await clientPromise
-  return client.db(DB_NAME)
+  return client.db(process.env.MONGODB_DB_NAME)
 }
 
-export { clientPromise }

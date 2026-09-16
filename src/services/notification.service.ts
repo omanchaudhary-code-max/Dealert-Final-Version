@@ -7,34 +7,56 @@ export class NotificationService {
     to: string
     userName: string
     productName: string
-    targetPrice: number
+    targetPrice?: number
     currentPrice: number
     productUrl: string
     alertId: string
     userId: string
+    triggerType?: 'TARGET_PRICE' | 'ALL_TIME_LOW' | 'TEN_PERCENT_DROP'
   }) {
     const log = await notificationRepository.create({
       user: { connect: { id: options.userId } },
       alert: { connect: { id: options.alertId } },
       email: options.to,
       status: 'PENDING',
+      sentAt: new Date(),
     })
+
+    const triggerMessageMap = {
+      TARGET_PRICE: 'has dropped to or below your target price!',
+      ALL_TIME_LOW: 'has reached an ALL-TIME LOW price!',
+      TEN_PERCENT_DROP: 'dropped by over 10% in the latest price check! (Pro Alert)',
+    }
+
+    const triggerLabel = options.triggerType
+      ? triggerMessageMap[options.triggerType]
+      : 'has dropped to your target price.'
+
+    const subject = options.triggerType === 'ALL_TIME_LOW'
+      ? `🔥 All-Time Low Alert: ${options.productName}`
+      : options.triggerType === 'TEN_PERCENT_DROP'
+      ? `⚡ 10%+ Drop Alert: ${options.productName}`
+      : `🎉 Price Drop Alert: ${options.productName}`
 
     try {
       await getResend().emails.send({
         from: FROM_EMAIL,
         to: options.to,
-        subject: `🎉 Price Drop Alert: ${options.productName}`,
+        subject,
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Price Drop Alert!</h2>
+            <h2>${subject}</h2>
             <p>Hi ${options.userName},</p>
-            <p>Great news! <strong>${options.productName}</strong> has dropped to your target price.</p>
+            <p>Great news! <strong>${options.productName}</strong> ${triggerLabel}</p>
             <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-              <tr>
-                <td style="padding: 8px; border: 1px solid #ddd;">Your target price</td>
-                <td style="padding: 8px; border: 1px solid #ddd;">Rs. ${options.targetPrice.toLocaleString()}</td>
-              </tr>
+              ${
+                options.targetPrice
+                  ? `<tr>
+                      <td style="padding: 8px; border: 1px solid #ddd;">Your target price</td>
+                      <td style="padding: 8px; border: 1px solid #ddd;">Rs. ${options.targetPrice.toLocaleString()}</td>
+                    </tr>`
+                  : ''
+              }
               <tr>
                 <td style="padding: 8px; border: 1px solid #ddd;">Current price</td>
                 <td style="padding: 8px; border: 1px solid #ddd; color: green;"><strong>Rs. ${options.currentPrice.toLocaleString()}</strong></td>
@@ -44,14 +66,14 @@ export class NotificationService {
               Buy Now on Daraz
             </a>
             <p style="color: #666; font-size: 12px; margin-top: 20px;">
-              You're receiving this because you set a price alert on Dealert.
+              You're receiving this because you set a price alert on Dealert. Cooldown limit: 7 days per item.
             </p>
           </div>
         `,
       })
 
       await notificationRepository.updateStatus(log.id, 'SENT')
-      logger.info('Alert email sent', { alertId: options.alertId, to: options.to })
+      logger.info('Alert email sent', { alertId: options.alertId, to: options.to, triggerType: options.triggerType })
     } catch (error) {
       await notificationRepository.updateStatus(log.id, 'FAILED')
       logger.error('Failed to send alert email', { alertId: options.alertId, error })

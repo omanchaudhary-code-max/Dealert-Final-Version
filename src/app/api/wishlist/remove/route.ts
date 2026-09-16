@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { wishlistService } from '@/services/wishlist.service'
 import { verifyAccessToken } from '@/lib/jwt'
-import { addToWishlistSchema } from '@/validations/wishlist.schema'
 
 async function getUserId(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get('access_token')?.value
+  const token =
+    request.cookies.get('access_token')?.value ||
+    request.cookies.get('accessToken')?.value ||
+    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+
   if (!token) return null
   try {
     const payload = await verifyAccessToken(token)
@@ -22,14 +25,15 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { productId } = addToWishlistSchema.parse(body)
+    const targetId = body.id || body.productId || body.itemId
+    if (!targetId) {
+      return NextResponse.json({ error: 'id, productId, or itemId is required' }, { status: 400 })
+    }
 
-    await wishlistService.removeFromWishlist(userId, productId)
+    await wishlistService.removeFromWishlist(targetId, userId)
     return NextResponse.json({ message: 'Product removed from wishlist successfully' })
   } catch (error) {
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    return NextResponse.json({ error: message }, { status: 400 })
   }
 }

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { wishlistService } from '@/services/wishlist.service'
 import { verifyAccessToken } from '@/lib/jwt'
-import { addToWishlistSchema } from '@/validations/wishlist.schema'
 
 async function getUserId(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get('access_token')?.value
+  const token =
+    request.cookies.get('access_token')?.value ||
+    request.cookies.get('accessToken')?.value ||
+    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+
   if (!token) return null
   try {
     const payload = await verifyAccessToken(token)
@@ -22,14 +25,23 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { productId } = addToWishlistSchema.parse(body)
+    const targetId = body.itemId || body.productId
+    if (!targetId) {
+      return NextResponse.json({ error: 'productId or itemId is required' }, { status: 400 })
+    }
 
-    const item = await wishlistService.addToWishlist(userId, productId)
+    const item = await wishlistService.addToWishlist(userId, {
+      itemId: targetId,
+      targetPrice: body.targetPrice ? Number(body.targetPrice) : undefined,
+      alertMode: body.alertMode || 'immediate',
+    })
+
     return NextResponse.json(item, { status: 201 })
   } catch (error) {
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    if (message.includes('Free tier limit reached')) {
+      return NextResponse.json({ error: message }, { status: 403 })
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 400 })
   }
 }

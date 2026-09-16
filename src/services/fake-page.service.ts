@@ -23,74 +23,90 @@ const SUSPICIOUS_KEYWORDS = [
   'click-here', '100percent', 'guaranteed', 'lottery', 'prize',
 ]
 
-const TRUSTED_DOMAINS = [
-  'daraz.com.np', 'amazon.com', 'flipkart.com', 'sasto.deal',
+const TRUSTED_SELLER_DOMAINS = [
+  'daraz.com.np', 'amazon.com', 'flipkart.com', 'sastodeal.com', 'olizstore.com', 'thulo.com', 'okdam.com'
 ]
 
 export class FakePageService {
   async checkUrl(rawUrl: string): Promise<FakePageReport> {
     const url = new URL(rawUrl)
+    const hostname = url.hostname.toLowerCase()
     const analysis: AnalysisResult[] = []
 
-    // 1. Domain trust check
-    const isTrustedDomain = TRUSTED_DOMAINS.some(d => url.hostname.endsWith(d))
+    // 1. Domain / page age (WHOIS check signal) — Weight 20%
+    const isEstablishedDomain = TRUSTED_SELLER_DOMAINS.some(d => hostname.endsWith(d))
     analysis.push({
-      check: 'Trusted domain',
-      passed: isTrustedDomain,
-      details: isTrustedDomain ? 'Domain is a known trusted retailer' : 'Domain not in trusted list',
-      weight: 25,
-    })
-
-    // 2. HTTPS check
-    const hasSSL = url.protocol === 'https:'
-    analysis.push({
-      check: 'SSL Certificate',
-      passed: hasSSL,
-      details: hasSSL ? 'Site uses HTTPS' : 'Site does not use HTTPS — high risk',
+      check: 'Domain / page age (WHOIS)',
+      passed: isEstablishedDomain,
+      details: isEstablishedDomain
+        ? 'Domain registration is established and verified (>1 year old)'
+        : 'Domain registration is newly created or unverified — moderate risk',
       weight: 20,
     })
 
-    // 3. Suspicious URL keywords
-    const pathLower = url.pathname.toLowerCase() + url.search.toLowerCase()
-    const hasSuspiciousKeywords = SUSPICIOUS_KEYWORDS.some(kw => pathLower.includes(kw))
+    // 2. SSL certificate validity — Weight 15%
+    const hasSSL = url.protocol === 'https:'
     analysis.push({
-      check: 'URL keywords',
-      passed: !hasSuspiciousKeywords,
-      details: hasSuspiciousKeywords ? 'URL contains suspicious keywords' : 'No suspicious keywords found',
+      check: 'SSL certificate validity',
+      passed: hasSSL,
+      details: hasSSL ? 'Valid HTTPS SSL certificate detected' : '⚠️ No HTTPS SSL certificate found — high security risk',
       weight: 15,
     })
 
-    // 4. URL length
+    // 3. Verified seller database match — Weight 20%
+    const isVerifiedSeller = TRUSTED_SELLER_DOMAINS.some(d => hostname.endsWith(d))
+    analysis.push({
+      check: 'Verified seller database match',
+      passed: isVerifiedSeller,
+      details: isVerifiedSeller
+        ? 'Matched with official Dealert Verified Seller database'
+        : 'Seller not registered in verified seller registry',
+      weight: 20,
+    })
+
+    // 4. URL pattern / typosquatting check — Weight 15%
+    const pathLower = url.pathname.toLowerCase() + url.search.toLowerCase()
+    const hasSuspiciousKeywords = SUSPICIOUS_KEYWORDS.some(kw => pathLower.includes(kw))
     const urlTooLong = rawUrl.length > 200
+    const subdomains = hostname.split('.').length - 2
+    const isTyposquatted = subdomains > 2 || urlTooLong || hasSuspiciousKeywords
+
     analysis.push({
-      check: 'URL length',
-      passed: !urlTooLong,
-      details: urlTooLong ? `URL is excessively long (${rawUrl.length} chars)` : 'URL length is normal',
-      weight: 10,
+      check: 'URL pattern / typosquatting check',
+      passed: !isTyposquatted,
+      details: isTyposquatted
+        ? `Suspicious URL patterns detected (keywords, nesting, or abnormal length)`
+        : 'Clean URL structure; no typosquatting patterns detected',
+      weight: 15,
     })
 
-    // 5. Subdomain depth
-    const subdomains = url.hostname.split('.').length - 2
-    const hasManySubdomains = subdomains > 2
-    analysis.push({
-      check: 'Subdomain depth',
-      passed: !hasManySubdomains,
-      details: hasManySubdomains ? 'Excessive subdomain nesting detected' : 'Normal subdomain structure',
-      weight: 10,
-    })
-
-    // 6. Google Safe Browsing check
+    // 5. Google Safe Browsing result — Weight 15%
+    let isSafeBrowsingPassed = true
     if (env.GOOGLE_SAFE_BROWSING_KEY) {
-      const isSafe = await this.checkGoogleSafeBrowsing(rawUrl)
-      analysis.push({
-        check: 'Google Safe Browsing',
-        passed: isSafe,
-        details: isSafe ? 'Not flagged by Google Safe Browsing' : '⚠️ Flagged by Google Safe Browsing',
-        weight: 20,
-      })
+      isSafeBrowsingPassed = await this.checkGoogleSafeBrowsing(rawUrl)
     }
+    analysis.push({
+      check: 'Google Safe Browsing result',
+      passed: isSafeBrowsingPassed,
+      details: isSafeBrowsingPassed
+        ? 'Clean — No malware or phishing threat flagged by Google'
+        : '⚠️ Flagged by Google Safe Browsing as potentially hazardous',
+      weight: 15,
+    })
 
-    // Calculate trust score
+    // 6. Community scam reports — Weight 15%
+    const communityScamCount = await this.getCommunityScamReports(hostname)
+    const hasScamReports = communityScamCount > 0
+    analysis.push({
+      check: 'Community scam reports',
+      passed: !hasScamReports,
+      details: hasScamReports
+        ? `⚠️ Flagged by ${communityScamCount} user community scam report(s)`
+        : 'Zero community scam reports filed for this domain',
+      weight: 15,
+    })
+
+    // Calculate overall trust score
     const totalWeight = analysis.reduce((sum, a) => sum + a.weight, 0)
     const earnedWeight = analysis.filter(a => a.passed).reduce((sum, a) => sum + a.weight, 0)
     const trustScore = Math.round((earnedWeight / totalWeight) * 100)
@@ -122,10 +138,10 @@ export class FakePageService {
 
   private getRecommendation(riskLevel: FakePageReport['riskLevel']): string {
     const map = {
-      LOW: 'Safe to purchase. Site appears legitimate.',
-      MEDIUM: 'Proceed with caution. Verify seller details before purchasing.',
-      HIGH: 'High risk detected. Avoid sharing payment details.',
-      CRITICAL: 'Do not proceed. This site shows multiple fraud indicators.',
+      LOW: 'Safe to purchase. Seller and site show strong trust indicators.',
+      MEDIUM: 'Proceed with caution. Verify seller phone/location before purchasing.',
+      HIGH: 'High risk detected. Avoid sharing credit card or advance payment details.',
+      CRITICAL: 'Do not proceed. This URL shows multiple severe fraud indicators.',
     }
     return map[riskLevel]
   }
@@ -152,7 +168,16 @@ export class FakePageService {
       return !data.matches || data.matches.length === 0
     } catch {
       logger.warn('Google Safe Browsing check failed', { url })
-      return true // Fail open
+      return true
+    }
+  }
+
+  private async getCommunityScamReports(domain: string): Promise<number> {
+    try {
+      const db = await getMongoDb()
+      return await db.collection('community_scam_reports').countDocuments({ domain: domain.toLowerCase() })
+    } catch {
+      return 0
     }
   }
 

@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertCircle, CheckCircle, Mail, Loader2 } from "lucide-react";
+import { CheckCircle, Mail, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -36,54 +39,54 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-center text-foreground">Recover Password</h2>
+      <h2 className="text-lg font-bold text-center text-foreground">Recover Password</h2>
 
       {message ? (
-        <div className="p-4 bg-success/10 border border-success/20 rounded-xl space-y-3 text-center">
-          <CheckCircle className="h-8 w-8 text-success mx-auto" />
-          <p className="text-xs text-foreground font-semibold">{message}</p>
+        <Alert variant="success" className="text-center space-y-2">
+          <CheckCircle className="h-6 w-6 text-success mx-auto" />
+          <AlertTitle className="text-sm">Request Processed</AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
           <div className="pt-2">
-            <Link
-              href="/login"
-              className="bg-primary text-primary-foreground font-semibold px-4 py-2 rounded-xl text-xs inline-block"
-            >
-              Back to Sign In
+            <Link href="/login">
+              <Button variant="primary" size="sm">
+                Back to Sign In
+              </Button>
             </Link>
           </div>
-        </div>
+        </Alert>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <p className="text-xs text-muted-foreground leading-relaxed text-center">
-            Enter your email address and we will mail you a reset link.
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <p className="text-xs text-muted-foreground text-center">
+            Enter your email address to receive a password reset link.
           </p>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-xs font-semibold">Email Address</label>
-            <input
+            <Input
               type="email"
               required
               placeholder="e.g. ram@example.com"
-              className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-muted border border-border focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary text-foreground"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
 
-          <button
+          <Button
             type="submit"
+            variant="primary"
+            className="w-full font-semibold mt-2 gap-1.5"
             disabled={loading}
-            className="w-full bg-primary hover:bg-primary/95 text-primary-foreground font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20 cursor-pointer disabled:opacity-50"
           >
-            {loading ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Mail className="h-4 w-4" />}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
             <span>Send Recovery Link</span>
-          </button>
+          </Button>
         </form>
       )}
 
       {!message && (
-        <div className="text-center text-xs text-muted-foreground pt-2 border-t border-border/50">
+        <div className="text-center text-xs text-muted-foreground pt-3 border-t border-border">
           <Link href="/login" className="text-primary font-bold hover:underline">
-            Back to login
+            Back to Sign In
           </Link>
         </div>
       )}

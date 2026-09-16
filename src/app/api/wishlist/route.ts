@@ -3,7 +3,11 @@ import { wishlistService } from '@/services/wishlist.service'
 import { verifyAccessToken } from '@/lib/jwt'
 
 async function getUserId(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get('access_token')?.value
+  const token =
+    request.cookies.get('access_token')?.value ||
+    request.cookies.get('accessToken')?.value ||
+    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+
   if (!token) return null
   try {
     const payload = await verifyAccessToken(token)
@@ -20,12 +24,42 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const products = await wishlistService.getWishlist(userId)
-    return NextResponse.json(products)
+    const items = await wishlistService.getWishlist(userId)
+    return NextResponse.json(items)
   } catch (error) {
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    console.error('GET /api/wishlist error:', error)
     return NextResponse.json({ error: 'Failed to fetch wishlist' }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const userId = await getUserId(request)
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const body = await request.json()
+    const itemId = body.itemId || body.productId
+    const targetPrice = body.targetPrice ? Number(body.targetPrice) : undefined
+    const alertMode = body.alertMode || 'immediate'
+
+    if (!itemId) {
+      return NextResponse.json({ error: 'itemId or productId is required' }, { status: 400 })
+    }
+
+    const created = await wishlistService.addToWishlist(userId, {
+      itemId,
+      targetPrice,
+      alertMode,
+    })
+
+    return NextResponse.json(created, { status: 201 })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to add item to wishlist'
+    if (message.includes('Free tier limit reached')) {
+      return NextResponse.json({ error: message }, { status: 403 })
+    }
+    return NextResponse.json({ error: message }, { status: 400 })
   }
 }

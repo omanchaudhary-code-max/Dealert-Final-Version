@@ -9,6 +9,7 @@ export class ProductService {
     limit?: number
     sortBy?: string
     sortOrder?: 'asc' | 'desc'
+    minDiscount?: number
   }) {
     const limit = Math.min(options.limit ?? appConfig.pagination.defaultLimit, appConfig.pagination.maxLimit)
     const page = Math.max(options.page ?? 1, 1)
@@ -22,10 +23,12 @@ export class ProductService {
         limit,
         sortBy: options.sortBy,
         sortOrder: options.sortOrder === 'asc' ? 1 : -1,
+        minDiscount: options.minDiscount,
       }),
       productRepository.countMany({
         category: options.category,
         search: options.search,
+        minDiscount: options.minDiscount,
       }),
     ])
 
@@ -52,13 +55,69 @@ export class ProductService {
     return productRepository.findTrending(limit)
   }
 
-  async getPriceIndex() {
-    const categoryAverages = await productRepository.getCategoryAverages()
-    return categoryAverages.map(item => ({
-      category: item._id,
-      averagePrice: Math.round(item.avgPrice),
-      productCount: item.count,
-    }))
+  async getCategories() {
+    return productRepository.getCategories()
+  }
+
+  async getPriceIndex(options?: { month?: string; category?: string; history?: boolean }) {
+    const { ensureInitialSnapshots } = await import('@/jobs/monthly-price-index')
+    await ensureInitialSnapshots()
+
+    if (options?.history) {
+      const allSnapshots = await productRepository.getAllSnapshots()
+      return {
+        snapshots: allSnapshots.map((s) => ({
+          month: s.month,
+          methodologyVersion: s.methodologyVersion,
+          computedAt: s.computedAt,
+          categoriesCount: s.categories.length,
+          avgPriceOverall:
+            s.categories.length > 0
+              ? Math.round(s.categories.reduce((acc, c) => acc + c.avgPrice, 0) / s.categories.length)
+              : 0,
+          categories: s.categories,
+        })),
+      }
+    }
+
+    let snapshot = options?.month
+      ? await productRepository.getSnapshotByMonth(options.month)
+      : await productRepository.getLatestSnapshot()
+
+    if (!snapshot) {
+      const all = await productRepository.getAllSnapshots()
+      snapshot = all[all.length - 1] || null
+    }
+
+    if (!snapshot) {
+      const now = new Date()
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      snapshot = {
+        month: currentMonth,
+        methodologyVersion: 'v1',
+        computedAt: now,
+        categories: [],
+      }
+    }
+
+    let categories = snapshot.categories || []
+    if (options?.category) {
+      const filterCat = options.category.toLowerCase().trim()
+      categories = categories.filter((c) => c.category.toLowerCase().trim().includes(filterCat))
+    }
+
+    const topMovers = [...snapshot.categories]
+      .filter((c) => c.pctChangeVsLastMonth !== null)
+      .sort((a, b) => Math.abs(b.pctChangeVsLastMonth || 0) - Math.abs(a.pctChangeVsLastMonth || 0))
+      .slice(0, 5)
+
+    return {
+      month: snapshot.month,
+      methodologyVersion: snapshot.methodologyVersion,
+      computedAt: snapshot.computedAt,
+      topMovers,
+      categories,
+    }
   }
 
   buildAffiliateUrl(productUrl: string): string {

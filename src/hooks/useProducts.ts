@@ -21,6 +21,8 @@ function buildParams(
     category?: string
     sortBy?: string
     limit?: number
+    minDiscount?: number
+    seed?: number | string
   } | undefined,
   page: number
 ): URLSearchParams {
@@ -28,6 +30,9 @@ function buildParams(
   if (filters?.search) params.append('search', filters.search)
   if (filters?.category && filters.category !== 'All') {
     params.append('category', filters.category)
+  }
+  if (filters?.minDiscount && filters.minDiscount > 0) {
+    params.append('minDiscount', String(filters.minDiscount))
   }
   if (filters?.sortBy && filters.sortBy !== 'default') {
     if (filters.sortBy === 'price-low') {
@@ -46,12 +51,17 @@ function buildParams(
     // "default" / no sort → tell backend to randomize
     params.append('sortBy', 'random')
   }
+  if (filters?.seed) {
+    params.append('_t', String(filters.seed))
+  } else if (filters?.sortBy === 'random') {
+    params.append('_t', String(Date.now()))
+  }
   params.append('limit', String(filters?.limit ?? PAGE_LIMIT))
   params.append('page', String(page))
   return params
 }
 
-function normalizeProduct(p: any): Product {
+function normalizeProduct(p: Product & { _id?: string }): Product {
   return { ...p, id: p._id || p.id }
 }
 
@@ -60,6 +70,8 @@ export function useInfiniteProducts(filters?: {
   search?: string
   category?: string
   sortBy?: string
+  minDiscount?: number
+  seed?: number | string
 }) {
   return useInfiniteQuery<ProductsResponse>({
     queryKey: ['products-infinite', filters],
@@ -82,23 +94,32 @@ export function useInfiniteProducts(filters?: {
 }
 
 /** Simple single-page version — kept for landing page / small slices */
-export function useProducts(filters?: {
-  search?: string
-  category?: string
-  sortBy?: string
-  limit?: number
-}) {
+export function useProducts(
+  filters?: {
+    search?: string
+    category?: string
+    sortBy?: string
+    limit?: number
+    minDiscount?: number
+    seed?: number | string
+  },
+  options?: {
+    refetchOnMount?: boolean | 'always'
+    staleTime?: number
+    gcTime?: number
+  }
+) {
   return useQuery<Product[]>({
     queryKey: ['products', filters],
     queryFn: async () => {
       const params = buildParams(filters, 1)
-      // Override limit for one-shot usage (landing page uses slice(0,4) anyway)
       if (filters?.limit) params.set('limit', String(filters.limit))
       const res = await fetch(`/api/products?${params.toString()}`)
       if (!res.ok) throw new Error('Failed to fetch products')
       const data: ProductsResponse = await res.json()
       return data.products.map(normalizeProduct)
     },
+    ...options,
   })
 }
 
@@ -112,5 +133,17 @@ export function useProductDetails(itemId: string) {
       return { ...p, id: p._id || p.id }
     },
     enabled: !!itemId,
+  })
+}
+
+export function useCategories() {
+  return useQuery<string[]>({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await fetch('/api/categories')
+      if (!res.ok) throw new Error('Failed to fetch categories')
+      return res.json()
+    },
+    staleTime: 5 * 60 * 1000,
   })
 }

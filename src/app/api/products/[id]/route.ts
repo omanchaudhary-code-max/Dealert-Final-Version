@@ -10,9 +10,9 @@ export async function GET(
     const product = await productService.getProductById(id)
     return NextResponse.json(product)
   } catch (error) {
-    if (error instanceof Error && error.message === 'Product not found') {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
-    }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Product not found' },
+      { status: 404 }
+    )
   }
 }

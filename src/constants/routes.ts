@@ -1,10 +1,7 @@
 export const ROUTES = {
   // Public
   HOME: '/',
-  PRODUCTS: '/products',
-  PRODUCT_DETAIL: (id: string) => `/products/${id}`,
   DEALS: '/deals',
-  CATEGORIES: '/categories',
   FAKE_PAGE_DETECTOR: '/fake-page-detector',
   PRICE_INDEX: '/price-index',
 
@@ -23,7 +20,6 @@ export const ROUTES = {
 
   // Admin
   ADMIN: '/admin',
-  ADMIN_PRODUCTS: '/admin/products',
   ADMIN_LOGS: '/admin/crawler-logs',
   ADMIN_ERRORS: '/admin/errors',
   ADMIN_AFFILIATE: '/admin/affiliate',

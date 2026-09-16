@@ -1,12 +1,36 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Product } from './useProducts'
 import { useAuthStore } from '@/hooks/useAuth'
+
+export interface WishlistFormattedItem {
+  id: string
+  itemId: string
+  productId: string
+  productName: string
+  productImage: string
+  productUrl: string
+  sellerName?: string
+  currentPrice: number
+  originalPrice?: number
+  discountPercentage?: number
+  wishlistedPrice: number
+  targetPrice?: number | null
+  alertMode: 'immediate' | 'all_time_low' | string
+  addedAt: string
+  targetHit?: boolean
+  allTimeLowHit?: boolean
+}
+
+export interface SlotUsageResponse {
+  used: number
+  limit: number | null
+  plan: string
+}
 
 export function useWishlist() {
   const queryClient = useQueryClient()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
-  const { data: wishlistProducts = [], isLoading } = useQuery<Product[]>({
+  const { data: rawWishlistItems = [], isLoading, error } = useQuery<WishlistFormattedItem[]>({
     queryKey: ['wishlist'],
     queryFn: async () => {
       const res = await fetch('/api/wishlist')
@@ -14,81 +38,138 @@ export function useWishlist() {
         if (res.status === 401) return []
         throw new Error('Failed to fetch wishlist')
       }
-      const data = await res.json()
-      return data.map((p: any) => ({ ...p, id: p._id || p.id }))
+      return await res.json()
     },
-    enabled: isAuthenticated, // ✅ skip the request entirely when logged out
+    enabled: isAuthenticated,
     retry: false,
   })
 
-  const wishlistItems = wishlistProducts.map((p) => p.id)
+  const { data: slotUsage } = useQuery<SlotUsageResponse>({
+    queryKey: ['wishlist-count'],
+    queryFn: async () => {
+      const res = await fetch('/api/wishlist/count')
+      if (!res.ok) return { used: rawWishlistItems.length, limit: 5, plan: 'FREE' }
+      return await res.json()
+    },
+    enabled: isAuthenticated,
+  })
 
-  const isWishlisted = (productId: string) => wishlistItems.includes(productId)
+  const wishlistedProductIds = rawWishlistItems.map((item) => item.itemId || item.productId || item.id)
+
+  const isWishlisted = (productIdOrItemId: string) =>
+    wishlistedProductIds.includes(productIdOrItemId) ||
+    rawWishlistItems.some(
+      (item) => item.productId === productIdOrItemId || item.itemId === productIdOrItemId || item.id === productIdOrItemId
+    )
 
   const addMutation = useMutation({
-    mutationFn: async (productId: string) => {
-      const res = await fetch('/api/wishlist/add', {
+    mutationFn: async ({
+      productId,
+      itemId,
+      targetPrice,
+      alertMode,
+    }: {
+      productId: string
+      itemId?: string
+      targetPrice?: number
+      alertMode?: string
+    }) => {
+      const res = await fetch('/api/wishlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId }),
+        body: JSON.stringify({
+          itemId: itemId || productId,
+          productId,
+          targetPrice,
+          alertMode,
+        }),
       })
+      const data = await res.json()
       if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Failed to add to wishlist')
+        throw new Error(data.error || 'Failed to add to wishlist')
       }
-      return res.json()
+      return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishlist'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wishlist'] })
+      queryClient.invalidateQueries({ queryKey: ['wishlist-count'] })
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      id,
+      targetPrice,
+      alertMode,
+    }: {
+      id: string
+      targetPrice?: number | null
+      alertMode?: string
+    }) => {
+      const res = await fetch(`/api/wishlist/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetPrice, alertMode }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update wishlist item')
+      }
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wishlist'] })
+    },
   })
 
   const removeMutation = useMutation({
-    mutationFn: async (productId: string) => {
-      const res = await fetch('/api/wishlist/remove', {
+    mutationFn: async (idOrProductId: string) => {
+      const targetItem = rawWishlistItems.find(
+        (i) => i.id === idOrProductId || i.productId === idOrProductId || i.itemId === idOrProductId
+      )
+      const targetId = targetItem ? targetItem.id : idOrProductId
+
+      const res = await fetch(`/api/wishlist/${encodeURIComponent(targetId)}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId }),
       })
+      const data = await res.json()
       if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Failed to remove from wishlist')
+        const fallbackRes = await fetch('/api/wishlist/remove', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: idOrProductId }),
+        })
+        if (!fallbackRes.ok) {
+          throw new Error(data.error || 'Failed to remove from wishlist')
+        }
       }
-      return res.json()
+      return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishlist'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wishlist'] })
+      queryClient.invalidateQueries({ queryKey: ['wishlist-count'] })
+    },
   })
 
-  const bulkAddMutation = useMutation({
-    mutationFn: async (productIds: string[]) => {
-      const res = await fetch('/api/wishlist/bulk-add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productIds }),
-      })
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Failed to bulk add to wishlist')
-      }
-      return res.json()
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishlist'] }),
-  })
-
-  const toggleWishlist = async (productId: string) => {
-    if (isWishlisted(productId)) {
-      await removeMutation.mutateAsync(productId)
+  const toggleWishlist = async (productIdOrItemId: string) => {
+    if (isWishlisted(productIdOrItemId)) {
+      await removeMutation.mutateAsync(productIdOrItemId)
     } else {
-      await addMutation.mutateAsync(productId)
+      await addMutation.mutateAsync({ productId: productIdOrItemId })
     }
   }
 
   return {
-    wishlistProducts,
-    wishlistItems,
+    wishlistProducts: rawWishlistItems,
+    wishlistItems: wishlistedProductIds,
+    slotUsage,
     isLoading,
+    error,
     isWishlisted,
-    addToWishlist: addMutation.mutateAsync,
+    addToWishlist: (productId: string, options?: { targetPrice?: number; alertMode?: string }) =>
+      addMutation.mutateAsync({ productId, ...options }),
+    updateWishlist: updateMutation.mutateAsync,
     removeFromWishlist: removeMutation.mutateAsync,
-    bulkAddToWishlist: bulkAddMutation.mutateAsync,
     toggleWishlist,
   }
 }

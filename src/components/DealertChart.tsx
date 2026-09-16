@@ -1,6 +1,6 @@
 "use client";
 
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 const INDEX_PREVIEW_DATA = [
   { month: "Jan", index: 100 },
@@ -14,17 +14,34 @@ const INDEX_PREVIEW_DATA = [
 export default function DealertChart() {
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <AreaChart data={INDEX_PREVIEW_DATA}>
+      <AreaChart data={INDEX_PREVIEW_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
         <defs>
           <linearGradient id="colorIndex" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#2563EB" stopOpacity={0.4} />
-            <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
+            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
           </linearGradient>
         </defs>
-        <XAxis dataKey="month" stroke="#9ca3af" fontSize={10} tickLine={false} />
-        <YAxis stroke="#9ca3af" fontSize={10} domain={["dataMin - 5", "auto"]} tickLine={false} />
-        <Tooltip contentStyle={{ fontSize: "11px", borderRadius: "8px" }} />
-        <Area type="monotone" dataKey="index" stroke="#2563EB" strokeWidth={2.5} fillOpacity={1} fill="url(#colorIndex)" />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
+        <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
+        <YAxis stroke="var(--muted-foreground)" fontSize={11} domain={["dataMin - 2", "auto"]} tickLine={false} axisLine={false} />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: "var(--card)",
+            borderColor: "var(--border)",
+            borderRadius: "6px",
+            fontSize: "12px",
+            color: "var(--foreground)",
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+          }}
+        />
+        <Area
+          type="monotone"
+          dataKey="index"
+          stroke="#3b82f6"
+          strokeWidth={2}
+          fillOpacity={1}
+          fill="url(#colorIndex)"
+        />
       </AreaChart>
     </ResponsiveContainer>
   );

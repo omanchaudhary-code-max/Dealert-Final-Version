@@ -122,10 +122,14 @@ model AffiliateClick {
 }
 
 model WishlistItem {
-  id        String   @id @default(cuid())
-  userId    String
-  productId String
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  userId          String
+  productId       String
+  itemId          String?
+  targetPrice     Float?
+  wishlistedPrice Float    @default(0)
+  alertMode       String   @default("immediate")
+  createdAt       DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

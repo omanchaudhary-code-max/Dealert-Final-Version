@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().default(""),
-  MONGODB_URI: z.string().default("mongodb://localhost:27017"),
+  MONGODB_URI: z.string(),
 
   JWT_ACCESS_SECRET: z.string().default("dev-access-secret-not-for-production"),
   JWT_REFRESH_SECRET: z.string().default("dev-refresh-secret-not-for-production"),
