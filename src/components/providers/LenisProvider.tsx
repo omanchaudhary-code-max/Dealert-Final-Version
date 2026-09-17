@@ -16,14 +16,19 @@ export default function LenisProvider({ children }: { children: React.ReactNode 
 
     lenisRef.current = lenis;
 
+    // MEMORY LEAK FIX: Store animation frame handle and cancel it on unmount!
+    // Without cancelAnimationFrame, unmounting/re-rendering spawned an un-cancelled
+    // infinite RAF loop that ran forever in the browser process.
+    let rafId: number;
     function raf(time: number) {
       lenis.raf(time);
-      requestAnimationFrame(raf);
+      rafId = requestAnimationFrame(raf);
     }
 
-    requestAnimationFrame(raf);
+    rafId = requestAnimationFrame(raf);
 
     return () => {
+      cancelAnimationFrame(rafId);
       lenis.destroy();
     };
   }, []);

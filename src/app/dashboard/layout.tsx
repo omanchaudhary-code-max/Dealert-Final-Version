@@ -5,50 +5,32 @@ import Sidebar from "@/components/layout/Sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Loader2, ShieldAlert } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { AuthLoadingScreen } from "@/components/ui/auth-loading-screen";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, initialized, isLoggingOut } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    if (initialized && !loading && !isAuthenticated && !isLoggingOut) {
       router.push("/login?redirect=/dashboard");
     }
-  }, [isAuthenticated, loading, router]);
+  }, [isAuthenticated, loading, initialized, isLoggingOut, router]);
 
-  if (loading) {
+  if (!initialized || loading || isLoggingOut) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <div className="text-center space-y-3">
-          <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
-          <p className="text-xs text-muted-foreground">Authenticating session...</p>
-        </div>
-      </div>
+      <AuthLoadingScreen
+        message={isLoggingOut ? "Signing out..." : "Authenticating session..."}
+      />
     );
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-4">
-        <Card className="max-w-md w-full p-6 text-center space-y-4 shadow-md">
-          <ShieldAlert className="h-10 w-10 text-destructive mx-auto" />
-          <h3 className="text-base font-bold">Access Restricted</h3>
-          <p className="text-xs text-muted-foreground">
-            Please log in to access your personal price tracking dashboard.
-          </p>
-          <Button variant="primary" size="sm" onClick={() => router.push("/login")}>
-            Sign In
-          </Button>
-        </Card>
-      </div>
-    );
+    return <AuthLoadingScreen message="Redirecting to sign in..." />;
   }
 
   return (

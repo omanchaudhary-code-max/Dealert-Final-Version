@@ -61,7 +61,9 @@ export class AlertRepository {
   async create(data: Prisma.AlertCreateInput): Promise<Alert> {
     try {
       const alert = await prisma.alert.create({ data })
-      inMemoryAlerts.unshift(alert)
+      // MEMORY LEAK FIX: Do NOT push to inMemoryAlerts when Prisma write succeeds!
+      // Unconditionally pushing to inMemoryAlerts caused the array to grow unboundedly
+      // across dev requests. The fallback array is only for offline dev mode when database writes fail.
       return alert
     } catch (err) {
       console.warn('Prisma Alert create fallback:', err instanceof Error ? err.message : err)
@@ -76,6 +78,9 @@ export class AlertRepository {
         updatedAt: new Date(),
       }
       inMemoryAlerts.unshift(newAlert)
+      if (inMemoryAlerts.length > 50) {
+        inMemoryAlerts.pop()
+      }
       return newAlert
     }
   }

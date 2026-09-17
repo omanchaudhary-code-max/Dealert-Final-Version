@@ -14,6 +14,8 @@ interface SnapshotHistoryPoint {
 
 interface IndexChartProps {
   onSelectMonth?: (month: string) => void;
+  snapshots?: any[];
+  height?: number;
 }
 
 export function IndexChart({ onSelectMonth }: IndexChartProps) {

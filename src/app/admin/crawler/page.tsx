@@ -11,6 +11,7 @@ import {
   Clock,
   Layers,
   ArrowUpRight,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -57,9 +58,11 @@ export default function AdminCrawlerPage() {
   const [errors, setErrors] = useState<CrawlError[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchAllData = async () => {
     setRefreshing(true);
+    setFetchError(null);
     try {
       const [statusRes, runsRes, errorsRes] = await Promise.all([
         fetch("/api/admin/crawl-status"),
@@ -67,22 +70,20 @@ export default function AdminCrawlerPage() {
         fetch("/api/admin/crawl-errors?limit=50"),
       ]);
 
-      if (statusRes.ok) {
-        const sData = await statusRes.json();
-        setStatusData(sData);
+      if (!statusRes.ok || !runsRes.ok || !errorsRes.ok) {
+        throw new Error("Failed to load some crawler diagnostics endpoints");
       }
 
-      if (runsRes.ok) {
-        const rData = await runsRes.json();
-        setRuns(Array.isArray(rData) ? rData : []);
-      }
+      const sData = await statusRes.json();
+      const rData = await runsRes.json();
+      const eData = await errorsRes.json();
 
-      if (errorsRes.ok) {
-        const eData = await errorsRes.json();
-        setErrors(Array.isArray(eData) ? eData : []);
-      }
+      setStatusData(sData);
+      setRuns(Array.isArray(rData) ? rData : []);
+      setErrors(Array.isArray(eData) ? eData : []);
     } catch (err) {
-      console.error("Failed to load crawler monitoring data:", err);
+      const errMsg = err instanceof Error ? err.message : "Failed to load crawler monitoring data";
+      setFetchError(errMsg);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -112,11 +113,11 @@ export default function AdminCrawlerPage() {
   };
 
   return (
-    <div className="space-y-6 text-foreground">
+    <div className="space-y-6 text-foreground pb-12">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2">
             <Database className="h-6 w-6 text-primary" />
             <span>Crawler Health & Activity</span>
           </h1>
@@ -130,24 +131,38 @@ export default function AdminCrawlerPage() {
           size="sm"
           onClick={fetchAllData}
           disabled={refreshing}
-          className="h-9 gap-1.5 self-start sm:self-auto"
+          className="h-9 gap-1.5 self-start sm:self-auto font-bold"
+          aria-label="Refresh crawler diagnostics"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
           <span>Refresh Status</span>
         </Button>
       </div>
 
+      {/* Fetch Error Retry Banner */}
+      {fetchError && (
+        <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{fetchError}</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={fetchAllData} className="h-7 text-xs font-bold shrink-0">
+            Retry
+          </Button>
+        </div>
+      )}
+
       {loading ? (
-        <div className="text-center py-20 bg-card rounded-xl border border-border">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <p className="text-xs text-muted-foreground mt-3">Fetching crawler diagnostics...</p>
+        <div className="space-y-4">
+          <div className="h-24 bg-muted/40 animate-pulse rounded-xl border border-border" />
+          <div className="h-48 bg-muted/40 animate-pulse rounded-xl border border-border" />
         </div>
       ) : (
         <>
           {/* Section 1 Banner: Health Status */}
           {statusData && (
             <Card
-              className={`p-5 border shadow-sm transition-colors ${
+              className={`p-5 border shadow-xs transition-colors ${
                 statusData.isStale
                   ? "bg-destructive/10 border-destructive/30 text-destructive-foreground"
                   : "bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-100"
@@ -191,7 +206,7 @@ export default function AdminCrawlerPage() {
                       <Clock className="h-3 w-3" />
                       <span>Started: {new Date(statusData.latestRun.started_at).toLocaleString()}</span>
                     </div>
-                    <div className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                    <div className="text-[11px] font-medium text-muted-foreground mt-0.5 font-mono">
                       {statusData.latestRun.finished_at
                         ? `Finished: ${new Date(statusData.latestRun.finished_at).toLocaleTimeString()}`
                         : "Status: Currently Running..."}
@@ -202,8 +217,8 @@ export default function AdminCrawlerPage() {
             </Card>
           )}
 
-          {/* Section 1 Table: Recent Crawl Runs */}
-          <Card className="p-5 space-y-4">
+          {/* Section 2: Recent Crawl Runs */}
+          <Card className="p-5 space-y-4 border border-border shadow-xs">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold flex items-center gap-1.5">
@@ -219,18 +234,65 @@ export default function AdminCrawlerPage() {
               </Badge>
             </div>
 
-            <div className="overflow-x-auto border border-border rounded-lg">
+            {/* Mobile Stacked View (< 768px) */}
+            <div className="block md:hidden space-y-3">
+              {runs.length === 0 ? (
+                <div className="text-center py-6 text-xs text-muted-foreground">No crawl logs found.</div>
+              ) : (
+                runs.map((run) => (
+                  <div key={run.id} className="p-3 bg-muted/40 rounded-lg border border-border/60 space-y-2 text-xs">
+                    <div className="flex justify-between items-center font-mono">
+                      <span className="font-bold text-foreground">Run: #{run.id.slice(-8)}</span>
+                      <Badge
+                        variant={
+                          run.status === "completed" || run.status === "SUCCESS"
+                            ? "success"
+                            : run.status === "failed" || run.status === "FAILED"
+                            ? "destructive"
+                            : "outline"
+                        }
+                        className="text-[9px] py-0 px-1.5 uppercase font-bold"
+                      >
+                        {run.status}
+                      </Badge>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground font-mono">
+                      Started: {new Date(run.started_at).toLocaleString()}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 pt-1 font-mono text-[11px] text-center bg-card p-2 rounded border border-border/40">
+                      <div>
+                        <span className="text-[9px] text-muted-foreground block">Total</span>
+                        <span className="font-bold">{run.total_products}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-muted-foreground block">New</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">+{run.total_new}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-muted-foreground block">Errors</span>
+                        <span className={run.total_errors > 0 ? "font-bold text-destructive" : "text-muted-foreground"}>
+                          {run.total_errors}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table (>= 768px) */}
+            <div className="hidden md:block overflow-x-auto border border-border rounded-lg">
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="text-xs">Run ID / Started</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
-                    <TableHead className="text-xs">Categories Scraped</TableHead>
-                    <TableHead className="text-xs text-right">Total</TableHead>
-                    <TableHead className="text-xs text-right">New</TableHead>
-                    <TableHead className="text-xs text-right">Updated</TableHead>
-                    <TableHead className="text-xs text-right">Errors</TableHead>
-                    <TableHead className="text-xs">Finished At</TableHead>
+                    <TableHead className="text-xs font-bold">Run ID / Started</TableHead>
+                    <TableHead className="text-xs font-bold">Status</TableHead>
+                    <TableHead className="text-xs font-bold">Categories Scraped</TableHead>
+                    <TableHead className="text-xs font-bold text-right">Total</TableHead>
+                    <TableHead className="text-xs font-bold text-right">New</TableHead>
+                    <TableHead className="text-xs font-bold text-right">Updated</TableHead>
+                    <TableHead className="text-xs font-bold text-right">Errors</TableHead>
+                    <TableHead className="text-xs font-bold">Finished At</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -242,9 +304,9 @@ export default function AdminCrawlerPage() {
                     </TableRow>
                   ) : (
                     runs.map((run) => (
-                      <TableRow key={run.id} className="text-xs">
+                      <TableRow key={run.id} className="text-xs hover:bg-muted/30 transition-colors">
                         <TableCell className="font-mono text-foreground font-medium">
-                          <div>{run.id.slice(-8)}</div>
+                          <div>#{run.id.slice(-8)}</div>
                           <div className="text-[10px] text-muted-foreground">
                             {new Date(run.started_at).toLocaleString()}
                           </div>
@@ -269,7 +331,7 @@ export default function AdminCrawlerPage() {
                               run.categories.map((c, idx) => (
                                 <span
                                   key={idx}
-                                  className="bg-muted px-1.5 py-0.5 rounded text-[10px] capitalize text-foreground"
+                                  className="bg-muted px-1.5 py-0.5 rounded text-[10px] capitalize text-foreground font-medium"
                                 >
                                   {c}
                                 </span>
@@ -304,8 +366,8 @@ export default function AdminCrawlerPage() {
             </div>
           </Card>
 
-          {/* Section 1 Table: Recent Crawl Errors */}
-          <Card className="p-5 space-y-4">
+          {/* Section 3: Recent Crawl Errors */}
+          <Card className="p-5 space-y-4 border border-border shadow-xs">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold flex items-center gap-1.5">
@@ -316,19 +378,50 @@ export default function AdminCrawlerPage() {
                   Logged failures, timeouts, and extraction errors from recent scraping sessions.
                 </p>
               </div>
-              <Badge variant="destructive" className="text-[10px]">
+              <Badge variant="destructive" className="text-[10px] font-bold">
                 {errors.length} errors logged
               </Badge>
             </div>
 
-            <div className="overflow-x-auto border border-border rounded-lg">
+            {/* Mobile View (< 768px) */}
+            <div className="block md:hidden space-y-3">
+              {errors.length === 0 ? (
+                <div className="text-center py-6 text-xs text-muted-foreground">No crawler errors logged.</div>
+              ) : (
+                errors.map((err) => (
+                  <div key={err.id} className="p-3 bg-destructive/5 rounded-lg border border-destructive/20 space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center text-[10px]">
+                      <Badge variant="outline" className="text-[9px] capitalize">
+                        {err.category || "General"}
+                      </Badge>
+                      <span className="font-mono text-muted-foreground">{new Date(err.logged_at).toLocaleTimeString()}</span>
+                    </div>
+                    <p className="font-bold text-destructive">{err.reason}</p>
+                    {err.url && (
+                      <a
+                        href={err.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] font-mono text-primary hover:underline flex items-center gap-1 truncate"
+                      >
+                        <span className="truncate">{err.url}</span>
+                        <ArrowUpRight className="h-3 w-3 shrink-0" />
+                      </a>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table (>= 768px) */}
+            <div className="hidden md:block overflow-x-auto border border-border rounded-lg">
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="text-xs">Logged At</TableHead>
-                    <TableHead className="text-xs">Category</TableHead>
-                    <TableHead className="text-xs">Reason / Exception</TableHead>
-                    <TableHead className="text-xs">Target URL</TableHead>
+                    <TableHead className="text-xs font-bold">Logged At</TableHead>
+                    <TableHead className="text-xs font-bold">Category</TableHead>
+                    <TableHead className="text-xs font-bold">Reason / Exception</TableHead>
+                    <TableHead className="text-xs font-bold">Target URL</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -340,7 +433,7 @@ export default function AdminCrawlerPage() {
                     </TableRow>
                   ) : (
                     errors.map((err) => (
-                      <TableRow key={err.id} className="text-xs">
+                      <TableRow key={err.id} className="text-xs hover:bg-muted/30 transition-colors">
                         <TableCell className="font-mono text-[11px] text-muted-foreground shrink-0 whitespace-nowrap">
                           {new Date(err.logged_at).toLocaleString()}
                         </TableCell>

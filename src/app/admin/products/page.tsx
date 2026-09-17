@@ -170,11 +170,11 @@ export default function AdminProductsPage() {
   };
 
   return (
-    <div className="space-y-6 text-foreground">
+    <div className="space-y-6 text-foreground pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2">
             <FolderTree className="h-6 w-6 text-primary" />
             <span>Product Management & Live Demo Tools</span>
           </h1>
@@ -184,12 +184,12 @@ export default function AdminProductsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => fetchProducts(search)} className="h-9">
+          <Button variant="outline" size="sm" onClick={() => fetchProducts(search)} className="h-9 font-bold" aria-label="Refresh products list">
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             <span>Refresh</span>
           </Button>
 
-          <Button variant="primary" size="sm" onClick={() => setIsAddOpen(true)} className="h-9 gap-1.5">
+          <Button variant="primary" size="sm" onClick={() => setIsAddOpen(true)} className="h-9 gap-1.5 font-bold shadow-xs">
             <Plus className="h-4 w-4" />
             <span>Add Product</span>
           </Button>
@@ -197,7 +197,7 @@ export default function AdminProductsPage() {
       </div>
 
       {/* Search Bar */}
-      <Card className="p-4">
+      <Card className="p-4 border border-border shadow-xs">
         <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -207,25 +207,72 @@ export default function AdminProductsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 text-xs h-9"
+              aria-label="Search products input"
             />
           </div>
-          <Button type="submit" variant="secondary" size="sm" className="h-9 text-xs px-4">
+          <Button type="submit" variant="secondary" size="sm" className="h-9 text-xs px-4 font-bold">
             Search
           </Button>
         </form>
       </Card>
 
-      {/* Products Table */}
-      <Card className="p-5">
-        <div className="overflow-x-auto border border-border rounded-lg">
+      {/* Products Table & Card Container */}
+      <Card className="p-5 border border-border shadow-xs space-y-4">
+        {/* Mobile Cards (< 768px) */}
+        <div className="block md:hidden space-y-3">
+          {loading ? (
+            <div className="py-8 text-center text-xs text-muted-foreground">Loading products...</div>
+          ) : products.length === 0 ? (
+            <div className="py-8 text-center text-xs text-muted-foreground">No products found matching query.</div>
+          ) : (
+            products.map((p) => (
+              <div key={p.id || p.itemId} className="p-4 bg-muted/40 rounded-lg border border-border/60 space-y-2 text-xs">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-foreground line-clamp-1">{p.name}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono">ID: {p.itemId || p.id}</div>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] capitalize shrink-0">
+                    {p.category}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-border/60 text-xs">
+                  <span className="text-muted-foreground">{p.sellerName || "Daraz"}</span>
+                  <span className="font-bold font-mono text-foreground">NPR {p.currentPrice?.toLocaleString() ?? 0}</span>
+                </div>
+
+                <div className="pt-2 border-t border-border/40">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs gap-1 hover:bg-primary/10 border-primary/30 text-primary font-bold h-8"
+                    onClick={() => {
+                      setSimulateProduct(p);
+                      setNewPrice(String(p.currentPrice));
+                      setSimResult(null);
+                      setSimError("");
+                    }}
+                  >
+                    <TrendingDown className="h-3.5 w-3.5 text-primary" />
+                    <span>Simulate Price Drop</span>
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop Table (>= 768px) */}
+        <div className="hidden md:block overflow-x-auto border border-border rounded-lg">
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead className="text-xs">Product Details</TableHead>
-                <TableHead className="text-xs">Category</TableHead>
-                <TableHead className="text-xs">Seller</TableHead>
-                <TableHead className="text-xs text-right">Current Price (NPR)</TableHead>
-                <TableHead className="text-xs text-right">Actions</TableHead>
+                <TableHead className="text-xs font-bold">Product Details</TableHead>
+                <TableHead className="text-xs font-bold">Category</TableHead>
+                <TableHead className="text-xs font-bold">Seller</TableHead>
+                <TableHead className="text-xs font-bold text-right">Current Price (NPR)</TableHead>
+                <TableHead className="text-xs font-bold text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -244,20 +291,20 @@ export default function AdminProductsPage() {
                 </TableRow>
               ) : (
                 products.map((p) => (
-                  <TableRow key={p.id || p.itemId} className="text-xs">
+                  <TableRow key={p.id || p.itemId} className="text-xs hover:bg-muted/30 transition-colors">
                     <TableCell className="max-w-[300px]">
-                      <div className="font-semibold text-foreground truncate">{p.name}</div>
+                      <div className="font-bold text-foreground truncate">{p.name}</div>
                       <div className="text-[10px] text-muted-foreground font-mono truncate">
                         ID: {p.itemId || p.id}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-[10px] capitalize">
+                      <Badge variant="outline" className="text-[10px] capitalize font-medium">
                         {p.category}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{p.sellerName || "Daraz"}</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-foreground">
+                    <TableCell className="text-right font-mono font-extrabold text-foreground">
                       NPR {p.currentPrice?.toLocaleString() ?? 0}
                     </TableCell>
                     <TableCell className="text-right">
@@ -265,7 +312,7 @@ export default function AdminProductsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-7 text-[11px] gap-1 hover:bg-primary/10 border-primary/30 text-primary"
+                          className="h-7 text-[11px] gap-1 hover:bg-primary/10 border-primary/30 text-primary font-bold"
                           onClick={() => {
                             setSimulateProduct(p);
                             setNewPrice(String(p.currentPrice));
@@ -301,6 +348,7 @@ export default function AdminProductsPage() {
               <button
                 onClick={() => setIsAddOpen(false)}
                 className="text-muted-foreground hover:text-foreground p-1 rounded-md"
+                aria-label="Close modal"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -326,6 +374,7 @@ export default function AdminProductsPage() {
                   value={addForm.title}
                   onChange={(e) => setAddForm({ ...addForm, title: e.target.value })}
                   className="text-xs h-9"
+                  aria-label="Product Title"
                 />
               </div>
 
@@ -339,6 +388,7 @@ export default function AdminProductsPage() {
                     value={addForm.category}
                     onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}
                     className="text-xs h-9"
+                    aria-label="Category"
                   />
                 </div>
 
@@ -351,6 +401,7 @@ export default function AdminProductsPage() {
                     value={addForm.current_price}
                     onChange={(e) => setAddForm({ ...addForm, current_price: e.target.value })}
                     className="text-xs h-9 font-mono"
+                    aria-label="Initial Price in NPR"
                   />
                 </div>
               </div>
@@ -364,6 +415,7 @@ export default function AdminProductsPage() {
                     value={addForm.seller_name}
                     onChange={(e) => setAddForm({ ...addForm, seller_name: e.target.value })}
                     className="text-xs h-9"
+                    aria-label="Seller Name"
                   />
                 </div>
 
@@ -375,6 +427,7 @@ export default function AdminProductsPage() {
                     value={addForm.url}
                     onChange={(e) => setAddForm({ ...addForm, url: e.target.value })}
                     className="text-xs h-9"
+                    aria-label="Product URL"
                   />
                 </div>
               </div>
@@ -383,7 +436,7 @@ export default function AdminProductsPage() {
                 <Button type="button" variant="outline" size="sm" onClick={() => setIsAddOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" variant="primary" size="sm" disabled={addLoading}>
+                <Button type="submit" variant="primary" size="sm" disabled={addLoading} className="font-bold">
                   {addLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Product"}
                 </Button>
               </div>
@@ -400,19 +453,20 @@ export default function AdminProductsPage() {
               <h2 className="text-base font-bold flex items-center gap-2 text-foreground">
                 <FlaskConical className="h-4 w-4 text-amber-500" />
                 <span>Simulate Price Drop</span>
-                <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
+                <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold">
                   Demo Tool
                 </Badge>
               </h2>
               <button
                 onClick={() => setSimulateProduct(null)}
                 className="text-muted-foreground hover:text-foreground p-1 rounded-md"
+                aria-label="Close modal"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               Manually trigger a price drop on <span className="font-semibold text-foreground">{simulateProduct.name}</span> to test live wishlist email alerts.
             </p>
 
@@ -437,7 +491,7 @@ export default function AdminProductsPage() {
                       {simResult.alertsSent.map((a, idx) => (
                         <div key={idx} className="flex items-center justify-between font-mono bg-background/50 px-2 py-1 rounded">
                           <span>Alert sent to {a.userEmail}</span>
-                          <Badge variant="outline" className="text-[9px] uppercase">
+                          <Badge variant="outline" className="text-[9px] uppercase font-bold">
                             {a.triggerType}
                           </Badge>
                         </div>
@@ -449,7 +503,7 @@ export default function AdminProductsPage() {
 
               <div className="bg-muted/50 p-3 rounded-lg border border-border space-y-1 text-xs">
                 <div className="text-muted-foreground">Current DB Price:</div>
-                <div className="text-sm font-bold font-mono text-foreground">
+                <div className="text-sm font-extrabold font-mono text-foreground">
                   NPR {simulateProduct.currentPrice?.toLocaleString()}
                 </div>
               </div>
@@ -463,8 +517,9 @@ export default function AdminProductsPage() {
                   value={newPrice}
                   onChange={(e) => setNewPrice(e.target.value)}
                   className="text-xs h-9 font-mono"
+                  aria-label="New Simulated Price in NPR"
                 />
-                <p className="text-[11px] text-muted-foreground mt-1">
+                <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
                   Submitting writes a new price history record tagged <code className="text-foreground bg-muted px-1 rounded font-mono">source: "manual_demo"</code> and immediately invokes <code className="text-foreground bg-muted px-1 rounded font-mono">evaluateAlertsForProduct()</code>.
                 </p>
               </div>
@@ -473,7 +528,7 @@ export default function AdminProductsPage() {
                 <Button type="button" variant="outline" size="sm" onClick={() => setSimulateProduct(null)}>
                   Close
                 </Button>
-                <Button type="submit" variant="primary" size="sm" disabled={simLoading} className="gap-1.5">
+                <Button type="submit" variant="primary" size="sm" disabled={simLoading} className="gap-1.5 font-bold">
                   {simLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (

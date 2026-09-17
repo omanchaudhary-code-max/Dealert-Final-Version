@@ -51,10 +51,11 @@ function buildParams(
     // "default" / no sort → tell backend to randomize
     params.append('sortBy', 'random')
   }
+  // MEMORY LEAK FIX: Do NOT append dynamic Date.now() timestamp here!
+  // Appending Date.now() caused React Query to create a new unique query key
+  // on every single render/fetch, leading to unbounded cache growth (7.5GB+ heap OOM).
   if (filters?.seed) {
     params.append('_t', String(filters.seed))
-  } else if (filters?.sortBy === 'random') {
-    params.append('_t', String(Date.now()))
   }
   params.append('limit', String(filters?.limit ?? PAGE_LIMIT))
   params.append('page', String(page))

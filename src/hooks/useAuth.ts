@@ -31,22 +31,26 @@ interface AuthStore {
   error: string | null
   loading: boolean
   initialized: boolean
+  isLoggingOut: boolean
   login: (data: any) => Promise<User>
   register: (data: any) => Promise<void>
-  logout: () => Promise<void>
+  logout: (redirectTo?: string) => Promise<void>
   checkSession: () => Promise<void>
   markNotificationRead: (id: string) => Promise<void>
   clearNotifications: () => Promise<void>
   updateProfile: (data: { fullName: string; phoneNumber: string }) => Promise<void>
 }
 
+let inFlightCheckSessionPromise: Promise<void> | null = null
+
 export const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
   isAuthenticated: false,
   notifications: [],
   error: null,
-  loading: false,
+  loading: true,
   initialized: false,
+  isLoggingOut: false,
 
   login: async (data) => {
     set({ loading: true, error: null })
@@ -65,6 +69,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         user: res.user,
         isAuthenticated: true,
         loading: false,
+        initialized: true,
       })
 
       await get().checkSession()
@@ -95,50 +100,73 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
-  logout: async () => {
-    set({ loading: true })
+  logout: async (redirectTo = '/login') => {
+    set({ isLoggingOut: true, loading: true })
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
-      set({
-        user: null,
-        isAuthenticated: false,
-        notifications: [],
-        loading: false,
-      })
     } catch {
-      set({ loading: false })
+      // Ignore network errors on logout API call
+    } finally {
+      if (typeof window !== 'undefined') {
+        window.location.href = redirectTo
+      } else {
+        set({
+          user: null,
+          isAuthenticated: false,
+          notifications: [],
+          loading: false,
+          initialized: true,
+          isLoggingOut: false,
+        })
+      }
     }
   },
 
   checkSession: async () => {
-    try {
-      const sessionRes = await fetch('/api/auth/me')
-      if (sessionRes.ok) {
-        const sessionData = await sessionRes.json()
-        if (sessionData.user) {
-          let notifications: Notification[] = []
-          try {
-            const notifRes = await fetch('/api/notification')
-            if (notifRes.ok) {
-              notifications = await notifRes.json()
-            }
-          } catch {
-            // Silence notification fetch failures
-          }
-
-          set({
-            user: sessionData.user,
-            isAuthenticated: true,
-            notifications,
-            initialized: true,
-          })
-          return
-        }
-      }
-      set({ user: null, isAuthenticated: false, initialized: true })
-    } catch {
-      set({ user: null, isAuthenticated: false, initialized: true })
+    // MEMORY LEAK FIX: Deduplicate concurrent session check calls!
+    // When multiple components mount simultaneously using useAuth(), checkSession()
+    // could be called in parallel. Reusing the active in-flight promise prevents
+    // duplicate network requests and redundant Zustand state update thrashing.
+    if (inFlightCheckSessionPromise) {
+      return inFlightCheckSessionPromise
     }
+
+    inFlightCheckSessionPromise = (async () => {
+      set({ loading: true })
+      try {
+        const sessionRes = await fetch('/api/auth/me')
+        if (sessionRes.ok) {
+          const sessionData = await sessionRes.json()
+          if (sessionData.user) {
+            let notifications: Notification[] = []
+            try {
+              const notifRes = await fetch('/api/notification')
+              if (notifRes.ok) {
+                notifications = await notifRes.json()
+              }
+            } catch {
+              // Silence notification fetch failures
+            }
+
+            set({
+              user: sessionData.user,
+              isAuthenticated: true,
+              notifications,
+              initialized: true,
+              loading: false,
+            })
+            return
+          }
+        }
+        set({ user: null, isAuthenticated: false, initialized: true, loading: false })
+      } catch {
+        set({ user: null, isAuthenticated: false, initialized: true, loading: false })
+      } finally {
+        inFlightCheckSessionPromise = null
+      }
+    })()
+
+    return inFlightCheckSessionPromise
   },
 
   markNotificationRead: async (id) => {
@@ -182,7 +210,7 @@ export function useAuth() {
   const store = useAuthStore()
 
   useEffect(() => {
-    if (!store.initialized && !store.loading) {
+    if (!store.initialized && store.loading) {
       store.checkSession()
     }
   }, [store.initialized, store.loading, store.checkSession])

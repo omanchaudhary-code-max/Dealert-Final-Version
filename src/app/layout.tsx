@@ -15,11 +15,41 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = "https://www.dealertnepal.com";
+const title = "Dealert - Nepal's Price Tracker & Deal Alert Platform";
+const description =
+  "Track prices, monitor drops, configure instant email and trigger alerts for items on Daraz e-commerce platforms in Nepal.";
+
 export const metadata: Metadata = {
-  title: "Dealert - Nepal's Price Tracker & Deal Alert Platform",
-  description: "Track prices, monitor drops, configure instant email and trigger alerts for items on Daraz e-commerce platforms in Nepal.",
-   icons: {
-    icon: '/dealert.ico',
+  metadataBase: new URL(siteUrl),
+  title,
+  description,
+  icons: {
+    icon: "/dealert.ico",
+    shortcut: "/dealert.ico",
+    apple: "/dealert_logo.png",
+  },
+  openGraph: {
+    title,
+    description,
+    url: siteUrl,
+    siteName: "Dealert",
+    images: [
+      {
+        url: "/dealert_logo.png",
+        width: 1200,
+        height: 630,
+        alt: "Dealert - Nepal's Price Tracker & Deal Alert Platform",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: ["/dealert_logo.png"],
   },
 };
 

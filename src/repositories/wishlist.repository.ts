@@ -119,7 +119,9 @@ export class WishlistRepository {
           alertMode: input.alertMode || 'immediate',
         },
       })
-      inMemoryWishlist.unshift(item)
+      // MEMORY LEAK FIX: Do NOT push to inMemoryWishlist when Prisma write succeeds!
+      // Unconditionally pushing to inMemoryWishlist caused the array to grow unboundedly
+      // across dev requests. The fallback array is only for offline dev mode when DATABASE_URL is missing.
       return item
     } catch (err) {
       console.error('Prisma Wishlist create error:', err instanceof Error ? err.message : err)
@@ -142,6 +144,9 @@ export class WishlistRepository {
         createdAt: new Date(),
       }
       inMemoryWishlist.unshift(newItem)
+      if (inMemoryWishlist.length > 50) {
+        inMemoryWishlist.pop()
+      }
       return newItem
     }
   }
@@ -247,6 +252,9 @@ export class WishlistRepository {
             alertMode: 'immediate',
             createdAt: new Date(),
           })
+          if (inMemoryWishlist.length > 50) {
+            inMemoryWishlist.pop()
+          }
           inserted++
         }
       }

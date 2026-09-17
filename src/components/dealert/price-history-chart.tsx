@@ -5,6 +5,7 @@ import { formatCurrency } from "@/lib/format";
 
 interface PriceHistoryChartProps {
   data?: { date: string; price: number }[];
+  height?: number;
 }
 
 export function PriceHistoryChart({ data }: PriceHistoryChartProps) {
