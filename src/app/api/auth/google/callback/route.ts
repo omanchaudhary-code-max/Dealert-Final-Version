@@ -3,21 +3,35 @@ import { authService } from '@/services/auth.service'
 import { env } from '@/lib/env'
 import { authConfig } from '@/config/auth.config'
 
+const isDev = process.env.NODE_ENV === 'development'
+
+async function devBypassLogin() {
+  // Local-dev-only convenience login. Never reachable in production —
+  // gated by isDev so a missing/failed OAuth code can't silently log
+  // a visitor in as this fake account on the live site.
+  await authService.handleGoogleOAuth({
+    id: 'google-dev-12345',
+    email: 'google.user@dealert.com',
+    name: 'Google User',
+    accessToken: 'dev-google-access-token',
+  })
+}
+
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
+  const baseUrl = env.NEXT_PUBLIC_APP_URL
 
   if (!code) {
-    try {
-      await authService.handleGoogleOAuth({
-        id: 'google-dev-12345',
-        email: 'google.user@dealert.com',
-        name: 'Google User',
-        accessToken: 'dev-google-access-token',
-      })
-      return NextResponse.redirect(`${env.NEXT_PUBLIC_APP_URL}/dashboard?auth=google_success`)
-    } catch {
-      return NextResponse.redirect(`${env.NEXT_PUBLIC_APP_URL}/login?error=oauth_failed`)
+    if (isDev) {
+      try {
+        await devBypassLogin()
+        return NextResponse.redirect(`${baseUrl}/dashboard?auth=google_success`)
+      } catch {
+        return NextResponse.redirect(`${baseUrl}/login?error=oauth_failed`)
+      }
     }
+    // Production: no code means this wasn't a real Google redirect — reject it.
+    return NextResponse.redirect(`${baseUrl}/login?error=missing_code`)
   }
 
   try {
@@ -36,6 +50,10 @@ export async function GET(request: NextRequest) {
 
     const tokens = await tokenRes.json()
 
+    if (!tokenRes.ok || !tokens.access_token) {
+      throw new Error(`Google token exchange failed: ${JSON.stringify(tokens)}`)
+    }
+
     // Get user info
     const userInfoRes = await fetch(authConfig.google.userInfoUrl, {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
@@ -50,23 +68,25 @@ export async function GET(request: NextRequest) {
       id: googleUser.sub || `google-${Date.now()}`,
       email: googleUser.email,
       name: googleUser.name || 'Google User',
-      accessToken: tokens.access_token || 'access-token',
+      accessToken: tokens.access_token,
     })
 
-    return NextResponse.redirect(`${env.NEXT_PUBLIC_APP_URL}/dashboard`)
+    return NextResponse.redirect(`${baseUrl}/dashboard`)
   } catch (err) {
     console.error('OAuth callback error:', err)
-    // Fall back to dev user in case of OAuth failure in local dev environment
-    try {
-      await authService.handleGoogleOAuth({
-        id: 'google-dev-12345',
-        email: 'google.user@dealert.com',
-        name: 'Google User',
-        accessToken: 'dev-google-access-token',
-      })
-      return NextResponse.redirect(`${env.NEXT_PUBLIC_APP_URL}/dashboard?auth=google_success`)
-    } catch {
-      return NextResponse.redirect(`${env.NEXT_PUBLIC_APP_URL}/login?error=oauth_failed`)
+
+    if (isDev) {
+      // Local dev only: fall back to the fake account so frontend work
+      // isn't blocked by a real Google OAuth misconfiguration locally.
+      try {
+        await devBypassLogin()
+        return NextResponse.redirect(`${baseUrl}/dashboard?auth=google_success`)
+      } catch {
+        return NextResponse.redirect(`${baseUrl}/login?error=oauth_failed`)
+      }
     }
+
+    // Production: a real failure must show as a real failure, never a silent fake login.
+    return NextResponse.redirect(`${baseUrl}/login?error=oauth_failed`)
   }
 }
