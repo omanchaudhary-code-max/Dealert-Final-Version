@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { wishlistService } from '@/services/wishlist.service'
 import { verifyAccessToken } from '@/lib/jwt'
+import { validateWishlistTargetPriceForProduct } from '@/lib/wishlist-validation'
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const token =
@@ -26,13 +27,28 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const targetId = body.itemId || body.productId
+    const targetPrice = body.targetPrice !== undefined && body.targetPrice !== null && body.targetPrice !== ''
+      ? Number(body.targetPrice)
+      : undefined
+    const targetPriceMin = body.targetPriceMin !== undefined && body.targetPriceMin !== null && body.targetPriceMin !== ''
+      ? Number(body.targetPriceMin)
+      : undefined
+
     if (!targetId) {
       return NextResponse.json({ error: 'productId or itemId is required' }, { status: 400 })
     }
 
+    if (targetPrice !== undefined || targetPriceMin !== undefined) {
+      const validation = await validateWishlistTargetPriceForProduct(targetId, targetPrice, targetPriceMin)
+      if (!validation.valid) {
+        return NextResponse.json({ error: validation.error }, { status: 400 })
+      }
+    }
+
     const item = await wishlistService.addToWishlist(userId, {
       itemId: targetId,
-      targetPrice: body.targetPrice ? Number(body.targetPrice) : undefined,
+      targetPrice,
+      targetPriceMin,
       alertMode: body.alertMode || 'immediate',
     })
 

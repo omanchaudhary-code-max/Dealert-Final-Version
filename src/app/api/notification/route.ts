@@ -3,7 +3,11 @@ import { notificationService } from '@/services/notification.service'
 import { verifyAccessToken } from '@/lib/jwt'
 
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get('access_token')?.value
+  const token =
+    request.cookies.get('access_token')?.value ||
+    request.cookies.get('accessToken')?.value ||
+    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {

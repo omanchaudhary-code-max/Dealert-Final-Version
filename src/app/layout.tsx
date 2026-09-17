@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import LenisProvider from "@/components/providers/LenisProvider";
 import QueryProvider from "@/components/providers/QueryProvider";
+import { ToastContainer } from "@/components/ui/toast-container";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
         <QueryProvider>
           <LenisProvider>
             {children}
+            <ToastContainer />
           </LenisProvider>
         </QueryProvider>
       </body>

@@ -1,7 +1,6 @@
-// lib/signals/domain-age.ts
-import { appConfig } from '@/config/app.config'
-import { logger } from '@/lib/logger'
-import type { SignalResult } from '@/types/trust'
+import { appConfig } from '../src/config/app.config'
+import { logger } from '../src/lib/logger'
+import type { SignalResult } from '../src/types/trust'
 
 export async function checkDomainAge(domain: string): Promise<SignalResult> {
   const base: Omit<SignalResult, 'score' | 'detail' | 'available'> = {
@@ -22,7 +21,7 @@ export async function checkDomainAge(domain: string): Promise<SignalResult> {
     }
   }
 
-  // Domains to query: primary domain first, then fallback for .np ccTLDs (e.g. daraz.com.np -> daraz.com)
+  // List domains to attempt: primary domain first, then fallback for .np domains (e.g. daraz.com.np -> daraz.com)
   const domainsToTry = [domain]
   if (domain.endsWith('.np') && domain.includes('.com.')) {
     domainsToTry.push(domain.replace(/\.np$/, ''))
@@ -46,6 +45,7 @@ export async function checkDomainAge(domain: string): Promise<SignalResult> {
       const text = await res.text()
 
       if (!res.ok) {
+        // If TLD not supported and we have another domain to try, continue
         if (text.includes('not supported') && targetDomain !== domainsToTry[domainsToTry.length - 1]) {
           continue
         }
@@ -62,11 +62,7 @@ export async function checkDomainAge(domain: string): Promise<SignalResult> {
       // Response is wrapped under a dynamic top-level key (the WHOIS server hostname, e.g. "whois.verisign-grs.com")
       const whoisServerKey = Object.keys(data)[0]
       const record = whoisServerKey ? data[whoisServerKey] : null
-      const createdDateStr =
-        record?.['Created Date'] ||
-        record?.['Creation Date'] ||
-        record?.['created'] ||
-        record?.['created_date']
+      const createdDateStr = record?.['Created Date'] || record?.['Creation Date'] || record?.['created']
 
       if (!createdDateStr) throw new Error('No Created Date in WHOIS response')
 
@@ -89,3 +85,10 @@ export async function checkDomainAge(domain: string): Promise<SignalResult> {
   logger.warn('Domain age check failed', { domain, err: lastError })
   return { ...base, score: 0, detail: 'Could not verify domain age', available: false }
 }
+
+async function test() {
+  const result = await checkDomainAge('daraz.com.np')
+  console.log('Result for daraz.com.np:', result)
+}
+
+test().catch(console.error)

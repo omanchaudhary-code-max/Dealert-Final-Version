@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/hooks/useAuth'
+import { useToastStore } from '@/hooks/useToast'
 
 export interface WishlistFormattedItem {
   id: string
@@ -14,6 +15,7 @@ export interface WishlistFormattedItem {
   discountPercentage?: number
   wishlistedPrice: number
   targetPrice?: number | null
+  targetPriceMin?: number | null
   alertMode: 'immediate' | 'all_time_low' | string
   addedAt: string
   targetHit?: boolean
@@ -24,6 +26,20 @@ export interface SlotUsageResponse {
   used: number
   limit: number | null
   plan: string
+}
+
+function showErrorToast(error: unknown, fallbackMessage: string) {
+  const message = error instanceof Error ? error.message : fallbackMessage
+  const isLimitError = message.includes('Free tier limit reached')
+
+  useToastStore.getState().showToast({
+    message: isLimitError
+      ? "You've reached your Free tier limit (5/5). Upgrade to Pro for unlimited wishlist items."
+      : message,
+    actionUrl: isLimitError ? '/pricing' : undefined,
+    actionLabel: isLimitError ? 'Upgrade to Pro' : undefined,
+    variant: 'warning',
+  })
 }
 
 export function useWishlist() {
@@ -67,11 +83,13 @@ export function useWishlist() {
       productId,
       itemId,
       targetPrice,
+      targetPriceMin,
       alertMode,
     }: {
       productId: string
       itemId?: string
       targetPrice?: number
+      targetPriceMin?: number | null
       alertMode?: string
     }) => {
       const res = await fetch('/api/wishlist', {
@@ -81,6 +99,7 @@ export function useWishlist() {
           itemId: itemId || productId,
           productId,
           targetPrice,
+          targetPriceMin,
           alertMode,
         }),
       })
@@ -91,8 +110,25 @@ export function useWishlist() {
       return data
     },
     onSuccess: () => {
+      const currentCount = slotUsage?.used ?? rawWishlistItems.length
+      const isFreeTier = slotUsage?.plan !== 'PRO'
+
+      // Invalidate BOTH query keys together after every add
       queryClient.invalidateQueries({ queryKey: ['wishlist'] })
       queryClient.invalidateQueries({ queryKey: ['wishlist-count'] })
+
+      // Trigger toast specifically on transition to 5th item (Free tier cap)
+      if (isFreeTier && currentCount === 4) {
+        useToastStore.getState().showToast({
+          message: "You've reached your Free tier limit (5/5). Upgrade to Pro for unlimited wishlist items.",
+          actionUrl: '/pricing',
+          actionLabel: 'Upgrade to Pro',
+          variant: 'warning',
+        })
+      }
+    },
+    onError: (err) => {
+      showErrorToast(err, 'Failed to add to wishlist')
     },
   })
 
@@ -100,16 +136,18 @@ export function useWishlist() {
     mutationFn: async ({
       id,
       targetPrice,
+      targetPriceMin,
       alertMode,
     }: {
       id: string
       targetPrice?: number | null
+      targetPriceMin?: number | null
       alertMode?: string
     }) => {
       const res = await fetch(`/api/wishlist/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetPrice, alertMode }),
+        body: JSON.stringify({ targetPrice, targetPriceMin, alertMode }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -118,7 +156,12 @@ export function useWishlist() {
       return data
     },
     onSuccess: () => {
+      // Invalidate BOTH query keys together
       queryClient.invalidateQueries({ queryKey: ['wishlist'] })
+      queryClient.invalidateQueries({ queryKey: ['wishlist-count'] })
+    },
+    onError: (err) => {
+      showErrorToast(err, 'Failed to update wishlist item')
     },
   })
 
@@ -146,16 +189,25 @@ export function useWishlist() {
       return data
     },
     onSuccess: () => {
+      // Invalidate BOTH query keys together after every remove
       queryClient.invalidateQueries({ queryKey: ['wishlist'] })
       queryClient.invalidateQueries({ queryKey: ['wishlist-count'] })
+    },
+    onError: (err) => {
+      showErrorToast(err, 'Failed to remove from wishlist')
     },
   })
 
   const toggleWishlist = async (productIdOrItemId: string) => {
-    if (isWishlisted(productIdOrItemId)) {
-      await removeMutation.mutateAsync(productIdOrItemId)
-    } else {
-      await addMutation.mutateAsync({ productId: productIdOrItemId })
+    try {
+      if (isWishlisted(productIdOrItemId)) {
+        await removeMutation.mutateAsync(productIdOrItemId)
+      } else {
+        await addMutation.mutateAsync({ productId: productIdOrItemId })
+      }
+    } catch {
+      // Already surfaced via onError above; swallow here so callers
+      // that don't await/catch toggleWishlist don't crash on rejection.
     }
   }
 
@@ -166,10 +218,12 @@ export function useWishlist() {
     isLoading,
     error,
     isWishlisted,
-    addToWishlist: (productId: string, options?: { targetPrice?: number; alertMode?: string }) =>
-      addMutation.mutateAsync({ productId, ...options }),
-    updateWishlist: updateMutation.mutateAsync,
-    removeFromWishlist: removeMutation.mutateAsync,
+    addToWishlist: (productId: string, options?: { targetPrice?: number; targetPriceMin?: number | null; alertMode?: string }) =>
+      addMutation.mutateAsync({ productId, ...options }).catch(() => undefined),
+    updateWishlist: (...args: Parameters<typeof updateMutation.mutateAsync>) =>
+      updateMutation.mutateAsync(...args).catch(() => undefined),
+    removeFromWishlist: (...args: Parameters<typeof removeMutation.mutateAsync>) =>
+      removeMutation.mutateAsync(...args).catch(() => undefined),
     toggleWishlist,
   }
 }

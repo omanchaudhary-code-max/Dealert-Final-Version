@@ -1,6 +1,7 @@
 import { notificationRepository } from '@/repositories/notification.repository'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 import { logger } from '@/lib/logger'
+import { buildTargetPriceAlertMessage } from '@/lib/email'
 
 export class NotificationService {
   async sendAlertEmail(options: {
@@ -8,29 +9,35 @@ export class NotificationService {
     userName: string
     productName: string
     targetPrice?: number
+    targetPriceMin?: number | null
     currentPrice: number
     productUrl: string
     alertId: string
     userId: string
     triggerType?: 'TARGET_PRICE' | 'ALL_TIME_LOW' | 'TEN_PERCENT_DROP'
   }) {
+    let triggerLabel = 'has dropped to your target price.'
+
+    if (options.triggerType === 'TARGET_PRICE' && options.targetPrice) {
+      triggerLabel = buildTargetPriceAlertMessage({
+        targetPrice: options.targetPrice,
+        targetPriceMin: options.targetPriceMin,
+        currentPrice: options.currentPrice,
+      })
+    } else if (options.triggerType === 'ALL_TIME_LOW') {
+      triggerLabel = 'has reached an ALL-TIME LOW price!'
+    } else if (options.triggerType === 'TEN_PERCENT_DROP') {
+      triggerLabel = 'dropped by over 10% in the latest price check! (Pro Alert)'
+    }
+
     const log = await notificationRepository.create({
       user: { connect: { id: options.userId } },
       alert: { connect: { id: options.alertId } },
       email: options.to,
+      message: `${options.productName} ${triggerLabel}`,
       status: 'PENDING',
       sentAt: new Date(),
     })
-
-    const triggerMessageMap = {
-      TARGET_PRICE: 'has dropped to or below your target price!',
-      ALL_TIME_LOW: 'has reached an ALL-TIME LOW price!',
-      TEN_PERCENT_DROP: 'dropped by over 10% in the latest price check! (Pro Alert)',
-    }
-
-    const triggerLabel = options.triggerType
-      ? triggerMessageMap[options.triggerType]
-      : 'has dropped to your target price.'
 
     const subject = options.triggerType === 'ALL_TIME_LOW'
       ? `🔥 All-Time Low Alert: ${options.productName}`
@@ -53,7 +60,9 @@ export class NotificationService {
                 options.targetPrice
                   ? `<tr>
                       <td style="padding: 8px; border: 1px solid #ddd;">Your target price</td>
-                      <td style="padding: 8px; border: 1px solid #ddd;">Rs. ${options.targetPrice.toLocaleString()}</td>
+                      <td style="padding: 8px; border: 1px solid #ddd;">Rs. ${options.targetPrice.toLocaleString()}${
+                        options.targetPriceMin ? ` (Min: Rs. ${options.targetPriceMin.toLocaleString()})` : ''
+                      }</td>
                     </tr>`
                   : ''
               }

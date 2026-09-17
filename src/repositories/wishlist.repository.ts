@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import type { WishlistItem } from '@prisma/client'
 
 const inMemoryWishlist: WishlistItem[] = [
@@ -8,6 +9,7 @@ const inMemoryWishlist: WishlistItem[] = [
     productId: 'prod-macbook-m3',
     itemId: 'manual-demo-1',
     targetPrice: 140000,
+    targetPriceMin: 130000,
     wishlistedPrice: 145000,
     alertMode: 'immediate',
     createdAt: new Date(),
@@ -18,6 +20,7 @@ const inMemoryWishlist: WishlistItem[] = [
     productId: 'prod-iphone-15',
     itemId: 'manual-demo-2',
     targetPrice: 110000,
+    targetPriceMin: null,
     wishlistedPrice: 115000,
     alertMode: 'all_time_low',
     createdAt: new Date(),
@@ -29,12 +32,18 @@ export interface CreateWishlistInput {
   itemId?: string
   wishlistedPrice: number
   targetPrice?: number
+  targetPriceMin?: number | null
   alertMode?: string
 }
 
 export interface UpdateWishlistInput {
   targetPrice?: number | null
+  targetPriceMin?: number | null
   alertMode?: string
+}
+
+function isRecordNotFoundError(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025'
 }
 
 export class WishlistRepository {
@@ -45,7 +54,8 @@ export class WishlistRepository {
         orderBy: { createdAt: 'desc' },
       })
     } catch (err) {
-      console.warn('Prisma Wishlist findByUserId fallback:', err instanceof Error ? err.message : err)
+      console.error('Prisma Wishlist findByUserId error:', err instanceof Error ? err.message : err)
+      if (process.env.DATABASE_URL) throw err
       return inMemoryWishlist.filter((w) => w.userId === userId)
     }
   }
@@ -54,8 +64,10 @@ export class WishlistRepository {
     try {
       const item = await prisma.wishlistItem.findUnique({ where: { id } })
       if (item) return item
+      if (process.env.DATABASE_URL) return null
     } catch (err) {
-      console.warn('Prisma Wishlist findById fallback:', err instanceof Error ? err.message : err)
+      console.error('Prisma Wishlist findById error:', err instanceof Error ? err.message : err)
+      if (process.env.DATABASE_URL) throw err
     }
     return inMemoryWishlist.find((w) => w.id === id) ?? null
   }
@@ -72,8 +84,10 @@ export class WishlistRepository {
         },
       })
       if (items[0]) return items[0]
+      if (process.env.DATABASE_URL) return null
     } catch (err) {
-      console.warn('Prisma Wishlist findUnique fallback:', err instanceof Error ? err.message : err)
+      console.error('Prisma Wishlist findUnique error:', err instanceof Error ? err.message : err)
+      if (process.env.DATABASE_URL) throw err
     }
     return (
       inMemoryWishlist.find(
@@ -86,7 +100,8 @@ export class WishlistRepository {
     try {
       return await prisma.wishlistItem.count({ where: { userId } })
     } catch (err) {
-      console.warn('Prisma Wishlist countByUserId fallback:', err instanceof Error ? err.message : err)
+      console.error('Prisma Wishlist countByUserId error:', err instanceof Error ? err.message : err)
+      if (process.env.DATABASE_URL) throw err
       return inMemoryWishlist.filter((w) => w.userId === userId).length
     }
   }
@@ -100,13 +115,16 @@ export class WishlistRepository {
           itemId: input.itemId || input.productId,
           wishlistedPrice: input.wishlistedPrice,
           targetPrice: input.targetPrice ?? null,
+          targetPriceMin: input.targetPriceMin ?? null,
           alertMode: input.alertMode || 'immediate',
         },
       })
       inMemoryWishlist.unshift(item)
       return item
     } catch (err) {
-      console.warn('Prisma Wishlist create fallback:', err instanceof Error ? err.message : err)
+      console.error('Prisma Wishlist create error:', err instanceof Error ? err.message : err)
+      if (process.env.DATABASE_URL) throw err
+
       const existing = inMemoryWishlist.find(
         (w) => w.userId === userId && (w.productId === input.productId || w.itemId === input.itemId)
       )
@@ -119,6 +137,7 @@ export class WishlistRepository {
         itemId: input.itemId || input.productId,
         wishlistedPrice: input.wishlistedPrice,
         targetPrice: input.targetPrice ?? null,
+        targetPriceMin: input.targetPriceMin ?? null,
         alertMode: input.alertMode || 'immediate',
         createdAt: new Date(),
       }
@@ -131,6 +150,7 @@ export class WishlistRepository {
     try {
       const dataToUpdate: any = {}
       if (input.targetPrice !== undefined) dataToUpdate.targetPrice = input.targetPrice
+      if (input.targetPriceMin !== undefined) dataToUpdate.targetPriceMin = input.targetPriceMin
       if (input.alertMode !== undefined) dataToUpdate.alertMode = input.alertMode
 
       const item = await prisma.wishlistItem.update({
@@ -141,37 +161,46 @@ export class WishlistRepository {
       if (idx !== -1) inMemoryWishlist[idx] = item
       return item
     } catch (err) {
-      console.warn('Prisma Wishlist update fallback:', err instanceof Error ? err.message : err)
+      console.error('Prisma Wishlist update error:', err instanceof Error ? err.message : err)
+      if (process.env.DATABASE_URL) throw err
+
       const item = inMemoryWishlist.find((w) => w.id === id && w.userId === userId)
       if (!item) throw new Error('Wishlist item not found')
       if (input.targetPrice !== undefined) item.targetPrice = input.targetPrice
+      if (input.targetPriceMin !== undefined) item.targetPriceMin = input.targetPriceMin
       if (input.alertMode !== undefined) item.alertMode = input.alertMode
       return item
     }
   }
 
-  async delete(id: string, userId: string): Promise<WishlistItem> {
+  /**
+   * Deletes a wishlist item. Idempotent: if the row is already gone (Prisma P2025 —
+   * e.g. a duplicate/racing delete request that lost the race), this returns null
+   * instead of throwing, since "already deleted" is the caller's desired end state,
+   * not a failure.
+   */
+  async delete(id: string, userId: string): Promise<WishlistItem | null> {
     try {
       return await prisma.wishlistItem.delete({
         where: { id },
       })
     } catch (err) {
-      console.warn('Prisma Wishlist delete fallback:', err instanceof Error ? err.message : err)
+      if (isRecordNotFoundError(err)) {
+        console.warn(`Wishlist item ${id} already deleted (P2025) — treating as success`)
+        const idx = inMemoryWishlist.findIndex((w) => w.id === id)
+        if (idx !== -1) inMemoryWishlist.splice(idx, 1)
+        return null
+      }
+
+      console.error('Prisma Wishlist delete error:', err instanceof Error ? err.message : err)
+      if (process.env.DATABASE_URL) throw err
+
       const idx = inMemoryWishlist.findIndex((w) => w.id === id && w.userId === userId)
       if (idx !== -1) {
         const [removed] = inMemoryWishlist.splice(idx, 1)
         return removed
       }
-      return {
-        id,
-        userId,
-        productId: 'del',
-        itemId: 'del',
-        wishlistedPrice: 0,
-        targetPrice: null,
-        alertMode: 'immediate',
-        createdAt: new Date(),
-      }
+      return null
     }
   }
 
@@ -200,7 +229,9 @@ export class WishlistRepository {
         return { count: inserted }
       })
     } catch (err) {
-      console.warn('Prisma Wishlist bulkCreate fallback:', err instanceof Error ? err.message : err)
+      console.error('Prisma Wishlist bulkCreate error:', err instanceof Error ? err.message : err)
+      if (process.env.DATABASE_URL) throw err
+
       let inserted = 0
       for (const productId of productIds) {
         const existing = inMemoryWishlist.find((w) => w.userId === userId && w.productId === productId)
@@ -212,6 +243,7 @@ export class WishlistRepository {
             itemId: productId,
             wishlistedPrice: 0,
             targetPrice: null,
+            targetPriceMin: null,
             alertMode: 'immediate',
             createdAt: new Date(),
           })

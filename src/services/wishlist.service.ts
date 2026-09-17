@@ -8,11 +8,13 @@ const FREE_TIER_WISHLIST_LIMIT = 5
 export interface AddWishlistServiceInput {
   itemId: string
   targetPrice?: number
+  targetPriceMin?: number | null
   alertMode?: string
 }
 
 export interface UpdateWishlistServiceInput {
   targetPrice?: number | null
+  targetPriceMin?: number | null
   alertMode?: string
 }
 
@@ -52,6 +54,7 @@ export class WishlistService {
           discountPercentage: product?.discountPercentage || 0,
           wishlistedPrice: item.wishlistedPrice || currentPrice,
           targetPrice: item.targetPrice,
+          targetPriceMin: item.targetPriceMin ?? null,
           alertMode: item.alertMode || 'immediate',
           addedAt: item.createdAt,
           targetHit,
@@ -106,6 +109,7 @@ export class WishlistService {
       itemId: product.itemId || product.id,
       wishlistedPrice,
       targetPrice: input.targetPrice,
+      targetPriceMin: input.targetPriceMin ?? null,
       alertMode: input.alertMode || 'immediate',
     })
 
@@ -116,6 +120,7 @@ export class WishlistService {
           user: { connect: { id: userId } },
           productId: product.id,
           targetPrice: input.targetPrice,
+          targetPriceMin: input.targetPriceMin ?? null,
           isActive: true,
         })
       } catch (err) {
@@ -140,23 +145,30 @@ export class WishlistService {
 
     const updated = await wishlistRepository.update(id, userId, input)
 
-    // Sync updated target price with alert repository for alert processing job
-    if (input.targetPrice !== undefined) {
+    // Sync updated target price and targetPriceMin with alert repository for alert processing job
+    if (input.targetPrice !== undefined || input.targetPriceMin !== undefined) {
       try {
         const existingAlerts = await alertRepository.findByProductId(existing.productId)
         const userAlert = existingAlerts.find((a) => a.userId === userId)
+        const finalTargetPrice = input.targetPrice !== undefined ? input.targetPrice : existing.targetPrice
+        const finalTargetPriceMin = input.targetPriceMin !== undefined ? input.targetPriceMin : existing.targetPriceMin
 
         if (userAlert) {
-          if (input.targetPrice && input.targetPrice > 0) {
-            await alertRepository.update(userAlert.id, { targetPrice: input.targetPrice, isActive: true })
+          if (finalTargetPrice && finalTargetPrice > 0) {
+            await alertRepository.update(userAlert.id, {
+              targetPrice: finalTargetPrice,
+              targetPriceMin: finalTargetPriceMin ?? null,
+              isActive: true,
+            })
           } else {
             await alertRepository.deactivate(userAlert.id)
           }
-        } else if (input.targetPrice && input.targetPrice > 0) {
+        } else if (finalTargetPrice && finalTargetPrice > 0) {
           await alertRepository.create({
             user: { connect: { id: userId } },
             productId: existing.productId,
-            targetPrice: input.targetPrice,
+            targetPrice: finalTargetPrice,
+            targetPriceMin: finalTargetPriceMin ?? null,
             isActive: true,
           })
         }
@@ -168,19 +180,34 @@ export class WishlistService {
     return updated
   }
 
+  /**
+   * Removes a wishlist item. Idempotent by design: if the item is already gone
+   * by the time this runs (e.g. a duplicate remove request lost a race with an
+   * earlier one), that counts as success — the end state the caller wanted
+   * ("this item is not in my wishlist") is already true.
+   */
   async removeFromWishlist(idOrProductId: string, userId: string) {
     let item = await wishlistRepository.findById(idOrProductId)
     if (!item) {
       item = await wishlistRepository.findUnique(userId, idOrProductId)
     }
 
-    if (!item || item.userId !== userId) {
+    if (!item) {
+      // Nothing matched at all (not even by productId/itemId) — genuinely not found.
+      return { alreadyRemoved: true }
+    }
+
+    if (item.userId !== userId) {
       throw new Error('Wishlist item not found or unauthorized')
     }
 
+    // delete() itself is idempotent (repository handles Prisma P2025 internally),
+    // so a result of null here just means another request already deleted it.
     const result = await wishlistRepository.delete(item.id, userId)
 
-    // Deactivate/remove corresponding alert so alert pipeline stops checking
+    // Deactivate/remove corresponding alert so alert pipeline stops checking.
+    // Runs regardless of whether this call or a racing one did the actual delete,
+    // since the alert should be inactive either way.
     try {
       const existingAlerts = await alertRepository.findByProductId(item.productId)
       const userAlert = existingAlerts.find((a) => a.userId === userId)
@@ -191,7 +218,7 @@ export class WishlistService {
       console.warn('Alert repository deactivation warning:', err)
     }
 
-    return result
+    return result ?? { alreadyRemoved: true }
   }
 
   async bulkAddToWishlist(userId: string, productIds: string[]) {

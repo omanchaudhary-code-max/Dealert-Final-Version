@@ -7,6 +7,7 @@ const inMemoryAlerts: Alert[] = [
     userId: 'usr-demo-user-1',
     productId: 'prod-macbook-m3',
     targetPrice: 150000,
+    targetPriceMin: 130000,
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -69,6 +70,7 @@ export class AlertRepository {
         userId: (data.user?.connect?.id as string) || 'usr-demo-user-1',
         productId: data.productId,
         targetPrice: data.targetPrice,
+        targetPriceMin: (data.targetPriceMin as number | null) ?? null,
         isActive: data.isActive ?? true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -89,6 +91,7 @@ export class AlertRepository {
       const alert = inMemoryAlerts.find((a) => a.id === id)
       if (!alert) throw new Error('Alert not found')
       if (typeof data.targetPrice === 'number') alert.targetPrice = data.targetPrice
+      if (data.targetPriceMin !== undefined) alert.targetPriceMin = data.targetPriceMin as number | null
       if (typeof data.isActive === 'boolean') alert.isActive = data.isActive
       alert.updatedAt = new Date()
       return alert

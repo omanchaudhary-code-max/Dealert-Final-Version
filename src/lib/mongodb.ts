@@ -1,6 +1,15 @@
 import { MongoClient, Db } from 'mongodb'
 
 const uri = process.env.MONGODB_URI!
+const dbName = process.env.MONGO_DB!
+
+if (!uri) {
+  throw new Error('MONGODB_URI is not set in the environment')
+}
+if (!dbName) {
+  throw new Error('MONGO_DB is not set in the environment')
+}
+
 let client: MongoClient
 let clientPromise: Promise<MongoClient>
 
@@ -10,8 +19,6 @@ declare global {
 }
 
 if (process.env.NODE_ENV === 'development') {
-  // In dev, Next.js hot-reloads modules — use a global so the client
-  // survives across reloads instead of creating a new one each time.
   if (!global._mongoClientPromise) {
     client = new MongoClient(uri)
     global._mongoClientPromise = client.connect()
@@ -24,6 +31,5 @@ if (process.env.NODE_ENV === 'development') {
 
 export async function getMongoDb(): Promise<Db> {
   const client = await clientPromise
-  return client.db(process.env.MONGODB_DB_NAME)
+  return client.db(dbName)
 }
-

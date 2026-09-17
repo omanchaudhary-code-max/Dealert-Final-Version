@@ -37,10 +37,12 @@ export default function WishlistDashboardPage() {
     removeFromWishlist,
   } = useWishlist();
 
-  // Inline target price edit state: { [itemId]: string }
+  // Inline target price edit state
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [targetInput, setTargetInput] = useState<string>("");
+  const [targetMinInput, setTargetMinInput] = useState<string>("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [inlineErrors, setInlineErrors] = useState<Record<string, string>>({});
   const [updateError, setUpdateError] = useState<string>("");
 
   // Embedded Fake-Page Checker state
@@ -61,18 +63,27 @@ export default function WishlistDashboardPage() {
   // Target price update handler
   const handleSaveTargetPrice = async (item: WishlistFormattedItem) => {
     setUpdateError("");
+    setInlineErrors((prev) => ({ ...prev, [item.id]: "" }));
     setUpdatingId(item.id);
 
     try {
       const priceNum = targetInput.trim() === "" ? null : parseFloat(targetInput);
+      const priceMinNum = targetMinInput.trim() === "" ? null : parseFloat(targetMinInput);
+
       if (priceNum !== null && (isNaN(priceNum) || priceNum <= 0)) {
         throw new Error("Target price must be a positive number");
       }
+      if (priceMinNum !== null && (isNaN(priceMinNum) || priceMinNum <= 0)) {
+        throw new Error("Minimum price must be a positive number");
+      }
 
-      await updateWishlist({ id: item.id, targetPrice: priceNum });
-      setEditingTargetId(null);
+      const res = await updateWishlist({ id: item.id, targetPrice: priceNum, targetPriceMin: priceMinNum });
+      if (res) {
+        setEditingTargetId(null);
+      }
     } catch (err) {
-      setUpdateError(err instanceof Error ? err.message : "Failed to update target price");
+      const errMsg = err instanceof Error ? err.message : "Failed to update target price";
+      setInlineErrors((prev) => ({ ...prev, [item.id]: errMsg }));
     } finally {
       setUpdatingId(null);
     }
@@ -287,56 +298,104 @@ export default function WishlistDashboardPage() {
                 {/* Center Column: Target Price & Alert Mode Config */}
                 <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center gap-3 bg-muted/40 p-3 rounded-lg border border-border/60 shrink-0">
                   {/* Inline Target Price Editor */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                      Target Price (NPR)
-                    </label>
+                  <div className="space-y-1.5 min-w-[200px]">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                        Target Range (NPR)
+                      </label>
+                    </div>
 
                     {isEditingTarget ? (
-                      <div className="flex items-center gap-1.5">
-                        <Input
-                          type="number"
-                          placeholder="e.g. 140000"
-                          value={targetInput}
-                          onChange={(e) => setTargetInput(e.target.value)}
-                          className="h-7 w-28 text-xs font-mono"
-                          autoFocus
-                        />
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={() => handleSaveTargetPrice(item)}
-                          disabled={isUpdating}
-                          className="h-7 px-2"
-                          title="Save target price"
-                        >
-                          {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setEditingTargetId(null)}
-                          className="h-7 px-2"
-                          title="Cancel"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <div className="flex flex-col">
+                            <span className="text-[9px] text-muted-foreground font-mono">Floor (Min)</span>
+                            <Input
+                              type="number"
+                              placeholder="Opt. floor"
+                              value={targetMinInput}
+                              onChange={(e) => setTargetMinInput(e.target.value)}
+                              className="h-7 w-24 text-xs font-mono"
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground self-end pb-1">–</span>
+                          <div className="flex flex-col">
+                            <span className="text-[9px] text-muted-foreground font-mono">Ceiling (Target)</span>
+                            <Input
+                              type="number"
+                              placeholder="e.g. 140000"
+                              value={targetInput}
+                              onChange={(e) => setTargetInput(e.target.value)}
+                              className="h-7 w-28 text-xs font-mono"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="flex items-center gap-1 self-end pb-0.5">
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              onClick={() => handleSaveTargetPrice(item)}
+                              disabled={isUpdating}
+                              className="h-7 px-2"
+                              title="Save target price"
+                            >
+                              {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingTargetId(null);
+                                setInlineErrors((prev) => ({ ...prev, [item.id]: "" }));
+                              }}
+                              className="h-7 px-2"
+                              title="Cancel"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Proactive Realistic Target Bounds Hint */}
+                        <div className="text-[10px] text-muted-foreground font-mono">
+                          Realistic target: below {formatCurrency(item.currentPrice)}
+                        </div>
+
+                        {/* Inline Error Display */}
+                        {inlineErrors[item.id] && (
+                          <div className="p-1.5 rounded bg-destructive/15 border border-destructive/30 text-destructive text-[11px] font-medium leading-tight max-w-xs">
+                            {inlineErrors[item.id]}
+                          </div>
+                        )}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold font-mono text-foreground">
-                          {item.targetPrice ? formatCurrency(item.targetPrice) : "Not set"}
-                        </span>
-                        <button
-                          onClick={() => {
-                            setEditingTargetId(item.id);
-                            setTargetInput(item.targetPrice ? String(item.targetPrice) : "");
-                          }}
-                          className="text-muted-foreground hover:text-primary transition-colors p-0.5 rounded"
-                          title="Edit Target Price"
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </button>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold font-mono text-foreground">
+                            {item.targetPriceMin != null && item.targetPrice != null
+                              ? `${formatCurrency(item.targetPriceMin)} – ${formatCurrency(item.targetPrice)}`
+                              : item.targetPrice != null
+                              ? formatCurrency(item.targetPrice)
+                              : "Not set"}
+                          </span>
+                          <button
+                            onClick={() => {
+                              setEditingTargetId(item.id);
+                              setTargetInput(item.targetPrice ? String(item.targetPrice) : "");
+                              setTargetMinInput(item.targetPriceMin ? String(item.targetPriceMin) : "");
+                              setInlineErrors((prev) => ({ ...prev, [item.id]: "" }));
+                            }}
+                            className="text-muted-foreground hover:text-primary transition-colors p-0.5 rounded"
+                            title="Edit Target Price Range"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                        {item.targetPriceMin != null && item.targetPrice != null && (
+                          <div className="text-[9px] text-muted-foreground font-mono">
+                            Floor: {formatCurrency(item.targetPriceMin)} | Ceiling: {formatCurrency(item.targetPrice)}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

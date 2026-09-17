@@ -113,6 +113,7 @@ export async function evaluateAlertsForProduct(
           userName: recipientName || 'User',
           productName: product.name,
           targetPrice: alert.targetPrice,
+          targetPriceMin: alert.targetPriceMin,
           currentPrice: product.currentPrice,
           productUrl: (product as any).affiliateUrl ?? product.productUrl,
           alertId: alert.id,

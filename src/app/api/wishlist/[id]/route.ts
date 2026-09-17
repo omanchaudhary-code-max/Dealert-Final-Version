@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { wishlistService } from '@/services/wishlist.service'
+import { wishlistRepository } from '@/repositories/wishlist.repository'
 import { verifyAccessToken } from '@/lib/jwt'
+import { validateWishlistTargetPriceForProduct } from '@/lib/wishlist-validation'
 
 async function getUserId(request: NextRequest): Promise<string | null> {
   const token =
@@ -30,6 +32,11 @@ export async function PATCH(
     const { id } = await params
     const body = await request.json()
 
+    const existing = await wishlistRepository.findById(id)
+    if (!existing || existing.userId !== userId) {
+      return NextResponse.json({ error: 'Wishlist item not found or unauthorized' }, { status: 403 })
+    }
+
     let targetPrice: number | null | undefined = undefined
     if (body.targetPrice !== undefined) {
       if (body.targetPrice === null || body.targetPrice === '') {
@@ -45,8 +52,38 @@ export async function PATCH(
       }
     }
 
+    let targetPriceMin: number | null | undefined = undefined
+    if (body.targetPriceMin !== undefined) {
+      if (body.targetPriceMin === null || body.targetPriceMin === '') {
+        targetPriceMin = null
+      } else {
+        targetPriceMin = Number(body.targetPriceMin)
+        if (isNaN(targetPriceMin) || targetPriceMin <= 0) {
+          return NextResponse.json(
+            { error: 'targetPriceMin must be a positive number' },
+            { status: 400 }
+          )
+        }
+      }
+    }
+
+    const effectiveTargetPrice = targetPrice !== undefined ? targetPrice : existing.targetPrice
+    const effectiveTargetPriceMin = targetPriceMin !== undefined ? targetPriceMin : existing.targetPriceMin
+
+    if (effectiveTargetPrice !== null || effectiveTargetPriceMin !== null) {
+      const validation = await validateWishlistTargetPriceForProduct(
+        existing.productId || existing.itemId || id,
+        effectiveTargetPrice,
+        effectiveTargetPriceMin
+      )
+      if (!validation.valid) {
+        return NextResponse.json({ error: validation.error }, { status: 400 })
+      }
+    }
+
     const updated = await wishlistService.updateWishlist(id, userId, {
       targetPrice,
+      targetPriceMin,
       alertMode: body.alertMode,
     })
 
