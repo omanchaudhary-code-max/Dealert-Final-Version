@@ -51,11 +51,26 @@ export class AdminService {
 
   async getDashboardStats() {
     const status = await this.getCrawlStatus()
+    const counts = await adminRepository.getDashboardCounts()
+
+    let totalUsers = 0
+    let activeAlerts = 0
+    let totalNotifications = 0
+
+    try {
+      const { prisma } = await import('@/lib/prisma')
+      totalUsers = await prisma.user.count()
+      activeAlerts = await prisma.alert.count({ where: { isActive: true } })
+      totalNotifications = await prisma.notificationLog.count()
+    } catch (err) {
+      console.error('Error fetching Prisma counts for admin dashboard:', err)
+    }
+
     return {
-      totalUsers: 0,
-      totalProducts: 0,
-      activeAlerts: 0,
-      totalNotifications: 0,
+      totalUsers,
+      totalProducts: counts.totalProducts,
+      activeAlerts,
+      totalNotifications,
       crawlStatus: status,
     }
   }

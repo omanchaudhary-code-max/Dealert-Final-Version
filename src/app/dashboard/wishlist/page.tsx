@@ -401,16 +401,16 @@ export default function WishlistDashboardPage() {
                   </div>
 
                   {/* Alert Mode Selector per Figure 4.5 */}
-                  <div className="space-y-1 sm:border-l border-border sm:pl-3 md:border-l-0 md:pl-0 lg:border-l lg:pl-3">
+                  <div className="space-y-1.5 sm:border-l border-border sm:pl-3 md:border-l-0 md:pl-0 lg:border-l lg:pl-3 pt-2 sm:pt-0 border-t sm:border-t-0">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
                       Alert Trigger
                     </label>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <Button
                         size="sm"
                         variant={item.alertMode === "immediate" ? "primary" : "outline"}
-                        className="h-6 text-[10px] px-2 py-0"
+                        className="h-8 min-h-[36px] text-xs px-3 font-semibold"
                         onClick={() => handleToggleAlertMode(item, "immediate")}
                         disabled={isUpdating}
                       >
@@ -419,7 +419,7 @@ export default function WishlistDashboardPage() {
                       <Button
                         size="sm"
                         variant={item.alertMode === "all_time_low" ? "primary" : "outline"}
-                        className="h-6 text-[10px] px-2 py-0"
+                        className="h-8 min-h-[36px] text-xs px-3 font-semibold"
                         onClick={() => handleToggleAlertMode(item, "all_time_low")}
                         disabled={isUpdating}
                       >
@@ -430,11 +430,11 @@ export default function WishlistDashboardPage() {
                 </div>
 
                 {/* Right Column: Actions */}
-                <div className="flex items-center justify-end gap-2 shrink-0">
+                <div className="flex items-center justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-border/40">
                   <Button
                     variant="destructive"
                     size="sm"
-                    className="h-8 w-8 p-0"
+                    className="h-10 w-10 min-h-[40px] min-w-[40px] p-0"
                     onClick={() => removeFromWishlist(item.id)}
                     title="Remove from Wishlist"
                   >

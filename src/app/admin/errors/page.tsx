@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AdminService } from "@/actions/admin.actions";
+import { getCrawlErrorsAction } from "@/actions/admin.actions";
 import { SystemError } from "@/types/admin";
 import { Loader2, Bug, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ export default function ErrorsPage() {
 
   const fetchErrors = () => {
     setLoading(true);
-    AdminService.getErrors()
+    getCrawlErrorsAction()
       .then((data) => {
         setErrors(data);
         setLoading(false);

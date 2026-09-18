@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/hooks/useAuth";
+import { useNotifications } from "@/hooks/useNotifications";
 import { Bell, MailCheck, ShieldCheck, Trash2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { useMemo } from "react";
 import { formatNotificationDate } from "@/lib/format";
 
 export default function NotificationsPage() {
-  const { notifications, markNotificationRead, clearNotifications } = useAuth();
+  const { notifications, markNotificationRead, markAllNotificationsRead, clearNotifications } = useNotifications();
 
   const simulatedEmailLogs = useMemo(() => [
     {
@@ -49,7 +49,7 @@ export default function NotificationsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => notifications.forEach((n) => markNotificationRead(n.id))}
+              onClick={markAllNotificationsRead}
               className="text-xs font-semibold"
             >
               Mark All Read

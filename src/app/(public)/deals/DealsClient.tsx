@@ -9,6 +9,7 @@ import Link from "next/link";
 import {
   ArrowDownRight,
   Bell,
+  Heart,
   Sparkles,
   Flame,
   TrendingDown,
@@ -355,7 +356,7 @@ function DealsPageContent() {
                           )}
                           title={wish ? "In Wishlist" : "Add to Wishlist"}
                         >
-                          <Bell className="h-3.5 w-3.5" />
+                          <Heart className={cn("h-3.5 w-3.5", wish && "fill-current text-primary")} />
                         </button>
                       </div>
 
@@ -466,18 +467,18 @@ function PriceHistoryModal({ product, onClose }: { product: Product; onClose: ()
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="relative w-full max-w-2xl rounded-3xl border border-border/60 bg-card p-6 shadow-elevated space-y-6">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border/60 bg-card p-4 sm:p-6 shadow-elevated space-y-5">
         <div className="flex items-center justify-between border-b border-border/60 pb-4">
-          <div className="flex items-center gap-2">
-            <LineChart className="h-5 w-5 text-primary" />
-            <h3 className="font-display text-base font-bold text-foreground truncate max-w-md">
+          <div className="flex items-center gap-2 min-w-0 pr-2">
+            <LineChart className="h-5 w-5 text-primary shrink-0" />
+            <h3 className="font-display text-sm sm:text-base font-bold text-foreground truncate">
               Price History: {product.name}
             </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer"
+            className="rounded-full p-2 text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center"
           >
             <X className="h-5 w-5" />
           </button>
@@ -492,7 +493,7 @@ function PriceHistoryModal({ product, onClose }: { product: Product; onClose: ()
           <div className="space-y-4">
             <PriceHistoryChart data={historyData} height={240} />
 
-            <div className="grid grid-cols-3 gap-3 text-center text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-center text-xs">
               <div className="p-3 rounded-2xl bg-muted/30 border border-border/40">
                 <span className="text-[10px] text-muted-foreground font-mono uppercase block">Current Price</span>
                 <span className="font-mono-num font-bold text-foreground">{formatCurrency(product.currentPrice)}</span>
@@ -513,7 +514,7 @@ function PriceHistoryModal({ product, onClose }: { product: Product; onClose: ()
           </div>
         )}
 
-        <div className="flex justify-between items-center pt-2 border-t border-border/40">
+        <div className="flex flex-col sm:flex-row gap-2 justify-between items-center pt-2 border-t border-border/40">
           <span className="text-[11px] text-muted-foreground font-mono">
             Scraped from Daraz Nepal product listing
           </span>
@@ -521,8 +522,9 @@ function PriceHistoryModal({ product, onClose }: { product: Product; onClose: ()
             href={product.productUrl}
             target="_blank"
             rel="noopener noreferrer"
+            className="w-full sm:w-auto"
           >
-            <Button size="sm" className="rounded-xl font-semibold text-xs px-4 shadow-glow cursor-pointer gap-1.5">
+            <Button size="sm" className="w-full sm:w-auto rounded-xl font-semibold text-xs px-4 min-h-[40px] shadow-glow cursor-pointer gap-1.5">
               View on Store <ExternalLink className="h-3.5 w-3.5" />
             </Button>
           </a>

@@ -42,6 +42,32 @@ export class NotificationRepository {
       return null
     }
   }
+
+  async markAsRead(id: string, userId: string): Promise<NotificationLog> {
+    return prisma.notificationLog.update({
+      where: { id, userId },
+      data: { isRead: true },
+    })
+  }
+
+  async markAllAsRead(userId: string): Promise<Prisma.BatchPayload> {
+    return prisma.notificationLog.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true },
+    })
+  }
+
+  async countUnreadByUserId(userId: string): Promise<number> {
+    return prisma.notificationLog.count({
+      where: { userId, isRead: false },
+    })
+  }
+
+  async clearByUserId(userId: string): Promise<Prisma.BatchPayload> {
+    return prisma.notificationLog.deleteMany({
+      where: { userId },
+    })
+  }
 }
 
 export const notificationRepository = new NotificationRepository()

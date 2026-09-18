@@ -169,7 +169,7 @@ export default async function ProductDetailPage({ params }: Props) {
                   ) : null}
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border/60 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3 border-t border-border/60 text-center">
                   <div className="p-3 rounded-xl bg-muted/40">
                     <span className="text-[10px] font-mono uppercase text-muted-foreground block">All-Time Low</span>
                     <span className="text-xs font-bold text-success font-mono-num">{formatCurrency(allTimeLow)}</span>
@@ -184,20 +184,20 @@ export default async function ProductDetailPage({ params }: Props) {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-3 pt-2">
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <a
                     href={product.productUrl || 'https://www.daraz.com.np'}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex-1"
+                    className="w-full sm:flex-1"
                   >
-                    <Button variant="primary" className="w-full font-bold gap-2 h-11">
+                    <Button variant="primary" className="w-full font-bold gap-2 min-h-[44px]">
                       <ExternalLink className="h-4 w-4" />
                       <span>View Deal on Daraz Nepal</span>
                     </Button>
                   </a>
-                  <Link href={`/fake-page-detector?url=${encodeURIComponent(product.productUrl || '')}`}>
-                    <Button variant="outline" className="font-bold gap-2 h-11">
+                  <Link href={`/fake-page-detector?url=${encodeURIComponent(product.productUrl || '')}`} className="w-full sm:w-auto">
+                    <Button variant="outline" className="w-full font-bold gap-2 min-h-[44px]">
                       <ShieldCheck className="h-4 w-4 text-primary" />
                       <span>Verify Seller Trust</span>
                     </Button>

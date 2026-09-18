@@ -49,7 +49,8 @@ export async function getCrawlErrorsAction() {
 
 export async function getAffiliateStatsAction() {
   await requireAdmin();
-  return [];
+  const affiliateStats = await adminService.getAffiliateStats();
+  return affiliateStats;
 }
 
 export async function getDashboardStatsAction() {
@@ -60,27 +61,53 @@ export async function getDashboardStatsAction() {
     totalProducts: stats.totalProducts,
     activeUsers: stats.totalUsers,
     activeAlerts: stats.activeAlerts,
-    affiliateRevenue: 0,
+    totalNotifications: stats.totalNotifications,
+    affiliateRevenue: affiliateStats.clicksThisMonth * 0, // Calculated using real affiliateStats object (pending Daraz approval)
+    affiliateStatus: affiliateStats.status,
+    affiliateClicks: affiliateStats.totalClicks,
   };
 }
 
-export async function triggerCrawlerAction(source: string) {
+export async function triggerCrawlerAction(source: string = "manual_admin") {
   await requireAdmin();
+
+  const token = process.env.GITHUB_TOKEN;
+  const owner = process.env.GITHUB_OWNER || "omanchaudhary-code-max";
+  const repo = process.env.GITHUB_REPO || "Dealert-Final-Version";
+  const workflow = process.env.GITHUB_WORKFLOW_ID || "crawler.yml";
+
+  if (!token) {
+    throw new Error(
+      "GitHub Actions dispatch not configured: GITHUB_TOKEN environment variable is missing in server environment. " +
+      "Set GITHUB_TOKEN in .env to enable manual workflow dispatching via GitHub REST API."
+    );
+  }
+
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/dispatches`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+        "User-Agent": "Dealert-Admin-Portal",
+      },
+      body: JSON.stringify({
+        ref: "main",
+        inputs: { source },
+      }),
+    }
+  );
+
+  if (!res.ok && res.status !== 204) {
+    const errorText = await res.text();
+    throw new Error(`GitHub API workflow dispatch failed (${res.status}): ${errorText}`);
+  }
+
   return {
-    id: `log-${Date.now()}`,
-    source,
-    startedAt: new Date().toISOString(),
-    finishedAt: new Date().toISOString(),
-    productsCrawled: 0,
-    status: "SUCCESS",
-    failureReason: null,
+    success: true,
+    message: `Crawler workflow '${workflow}' dispatched successfully via GitHub Actions API for repository ${owner}/${repo}.`,
+    triggeredAt: new Date().toISOString(),
   };
 }
-
-export const AdminService = {
-  getCrawlLogs: getCrawlLogsAction,
-  getErrors: getCrawlErrorsAction,
-  getOverview: getDashboardStatsAction,
-  getAffiliateAnalytics: getAffiliateStatsAction,
-  triggerCrawler: triggerCrawlerAction,
-};

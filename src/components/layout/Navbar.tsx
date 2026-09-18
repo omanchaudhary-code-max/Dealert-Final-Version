@@ -21,6 +21,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useWishlist } from "@/hooks/useWishlist";
 import { useProducts } from "@/hooks/useProducts";
+import { useNotifications } from "@/hooks/useNotifications";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatNotificationDate } from "@/lib/format";
@@ -32,10 +33,10 @@ export default function Navbar() {
   const {
     user,
     isAuthenticated,
-    notifications,
     logout,
-    markNotificationRead,
   } = useAuth();
+
+  const { notifications, unreadCount, markNotificationRead, markAllNotificationsRead } = useNotifications();
 
   const { wishlistItems } = useWishlist();
 
@@ -94,8 +95,6 @@ export default function Navbar() {
     setSearchQuery("");
     setMobileMenuOpen(false);
   };
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const navLinks = [
     { href: "/deals", label: "Deals" },
@@ -222,7 +221,7 @@ export default function Navbar() {
                   <span className="font-semibold text-xs text-foreground">Notifications</span>
                   {unreadCount > 0 && (
                     <button
-                      onClick={() => notifications.forEach((n) => { if (!n.read) markNotificationRead(n.id); })}
+                      onClick={() => markAllNotificationsRead()}
                       className="text-[11px] text-primary hover:underline font-medium cursor-pointer"
                     >
                       Mark all read
@@ -369,32 +368,94 @@ export default function Navbar() {
       </div>
 
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-border bg-card p-4 space-y-3">
+        <div className="lg:hidden border-t border-border bg-card p-4 space-y-4 max-h-[calc(100vh-3.5rem)] overflow-y-auto">
           <form onSubmit={handleSearchSubmit} className="w-full">
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search Daraz products..."
-                className="w-full pl-9 pr-4 py-2 rounded-md bg-muted border border-border text-xs text-foreground"
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-muted border border-border text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
           </form>
-          <nav className="flex flex-col space-y-1 font-medium text-sm">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`px-3 py-2 rounded-md ${
-                  pathname === link.href ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+
+          <div className="space-y-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">
+              Navigation
+            </div>
+            <nav className="flex flex-col space-y-1 font-medium text-sm">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-3 py-2.5 rounded-xl min-h-[44px] flex items-center transition-colors ${
+                    pathname === link.href ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          {isAuthenticated && (
+            <div className="space-y-3 pt-3 border-t border-border/60">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">
+                User Portal
+              </div>
+              <nav className="flex flex-col space-y-1 font-medium text-sm">
+                {[
+                  { href: "/dashboard", label: "Dashboard Overview" },
+                  { href: "/dashboard/wishlist", label: "My Wishlist" },
+                  { href: "/dashboard/alerts", label: "Price Alerts" },
+                  { href: "/dashboard/notifications", label: "Alert History" },
+                  { href: "/dashboard/profile", label: "Account Profile" },
+                ].map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`px-3 py-2.5 rounded-xl min-h-[44px] flex items-center transition-colors ${
+                      pathname === link.href ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
+          )}
+
+          {isAuthenticated && user?.role === "ADMIN" && (
+            <div className="space-y-3 pt-3 border-t border-border/60">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-destructive px-1 flex items-center gap-1">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span>Admin Portal</span>
+              </div>
+              <nav className="flex flex-col space-y-1 font-medium text-sm">
+                {[
+                  { href: "/admin", label: "Admin Overview" },
+                  { href: "/admin/crawler", label: "Crawler Health" },
+                  { href: "/admin/products", label: "Products & Demo" },
+                  { href: "/admin/affiliate", label: "Affiliate Earnings" },
+                ].map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`px-3 py-2.5 rounded-xl min-h-[44px] flex items-center transition-colors ${
+                      pathname === link.href ? "bg-destructive/10 text-destructive font-semibold" : "text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
+          )}
         </div>
       )}
     </header>

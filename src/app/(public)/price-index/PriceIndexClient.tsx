@@ -274,69 +274,120 @@ export function PriceIndexClient() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-border/60 bg-muted/30 font-mono uppercase text-[10px] text-muted-foreground">
-                    <th className="py-3 px-6 font-semibold">Category Name</th>
-                    <th className="py-3 px-4 font-semibold text-right">Average Price (NPR)</th>
-                    <th className="py-3 px-4 font-semibold text-right">Qualifying Products</th>
-                    <th className="py-3 px-4 font-semibold text-right">MoM % Change</th>
-                    <th className="py-3 px-6 font-semibold text-center w-48">Historical Sparkline</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40">
-                  {categories.map((cat) => {
-                    const isDown = cat.pctChangeVsLastMonth !== null && cat.pctChangeVsLastMonth < 0;
-                    const isUp = cat.pctChangeVsLastMonth !== null && cat.pctChangeVsLastMonth > 0;
+            <>
+              {/* Mobile Stacked Card View (< 768px) */}
+              <div className="block md:hidden p-4 space-y-3">
+                {categories.map((cat) => {
+                  const isDown = cat.pctChangeVsLastMonth !== null && cat.pctChangeVsLastMonth < 0;
+                  const isUp = cat.pctChangeVsLastMonth !== null && cat.pctChangeVsLastMonth > 0;
 
-                    return (
-                      <tr key={cat.category} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-4 px-6 font-bold text-foreground">
-                          <Link href={`/deals?search=${encodeURIComponent(cat.category)}`} className="hover:text-primary transition-colors">
+                  return (
+                    <div key={cat.category} className="p-4 rounded-2xl bg-muted/20 border border-border/60 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <Link href={`/deals?search=${encodeURIComponent(cat.category)}`} className="font-bold text-sm text-foreground hover:text-primary transition-colors block">
                             {cat.category}
                           </Link>
-                        </td>
-                        <td className="py-4 px-4 font-mono-num font-semibold text-right text-foreground">
-                          Rs {cat.avgPrice.toLocaleString()}
-                        </td>
-                        <td className="py-4 px-4 font-mono-num text-right text-muted-foreground">
-                          {cat.productCount} items
-                        </td>
-                        <td className="py-4 px-4 text-right">
-                          {cat.pctChangeVsLastMonth !== null ? (
-                            <span
-                              className={cn(
-                                "inline-flex items-center gap-1 font-mono-num font-bold text-xs px-2 py-0.5 rounded-full border",
-                                isDown
-                                  ? "bg-success/15 text-success border-success/30"
-                                  : isUp
-                                  ? "bg-destructive/15 text-destructive border-destructive/30"
-                                  : "bg-muted text-muted-foreground border-border"
-                              )}
-                            >
-                              {isDown ? (
-                                <ArrowDownRight className="h-3 w-3" />
-                              ) : isUp ? (
-                                <ArrowUpRight className="h-3 w-3" />
-                              ) : (
-                                <Minus className="h-3 w-3" />
-                              )}
-                              {Math.abs(cat.pctChangeVsLastMonth)}%
-                            </span>
-                          ) : (
-                            <span className="font-mono text-[10px] text-muted-foreground">N/A</span>
-                          )}
-                        </td>
-                        <td className="py-2 px-6">
-                          <CategorySparkline history={historySnapshots} categoryName={cat.category} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          <span className="text-[10px] font-mono text-muted-foreground">{cat.productCount} qualifying items</span>
+                        </div>
+
+                        {cat.pctChangeVsLastMonth !== null ? (
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 font-mono-num font-bold text-xs px-2 py-0.5 rounded-full border shrink-0",
+                              isDown
+                                ? "bg-success/15 text-success border-success/30"
+                                : isUp
+                                ? "bg-destructive/15 text-destructive border-destructive/30"
+                                : "bg-muted text-muted-foreground border-border"
+                            )}
+                          >
+                            {isDown ? <ArrowDownRight className="h-3 w-3" /> : isUp ? <ArrowUpRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                            {Math.abs(cat.pctChangeVsLastMonth)}%
+                          </span>
+                        ) : (
+                          <span className="font-mono text-[10px] text-muted-foreground">Baseline</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40 font-mono">
+                        <span className="text-muted-foreground">Average Price:</span>
+                        <span className="font-bold text-foreground font-mono-num">Rs {cat.avgPrice.toLocaleString()}</span>
+                      </div>
+
+                      <div className="pt-1">
+                        <CategorySparkline history={historySnapshots} categoryName={cat.category} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View (>= 768px) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border/60 bg-muted/30 font-mono uppercase text-[10px] text-muted-foreground">
+                      <th className="py-3 px-6 font-semibold">Category Name</th>
+                      <th className="py-3 px-4 font-semibold text-right">Average Price (NPR)</th>
+                      <th className="py-3 px-4 font-semibold text-right">Qualifying Products</th>
+                      <th className="py-3 px-4 font-semibold text-right">MoM % Change</th>
+                      <th className="py-3 px-6 font-semibold text-center w-48">Historical Sparkline</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40">
+                    {categories.map((cat) => {
+                      const isDown = cat.pctChangeVsLastMonth !== null && cat.pctChangeVsLastMonth < 0;
+                      const isUp = cat.pctChangeVsLastMonth !== null && cat.pctChangeVsLastMonth > 0;
+
+                      return (
+                        <tr key={cat.category} className="hover:bg-muted/20 transition-colors">
+                          <td className="py-4 px-6 font-bold text-foreground">
+                            <Link href={`/deals?search=${encodeURIComponent(cat.category)}`} className="hover:text-primary transition-colors">
+                              {cat.category}
+                            </Link>
+                          </td>
+                          <td className="py-4 px-4 font-mono-num font-semibold text-right text-foreground">
+                            Rs {cat.avgPrice.toLocaleString()}
+                          </td>
+                          <td className="py-4 px-4 font-mono-num text-right text-muted-foreground">
+                            {cat.productCount} items
+                          </td>
+                          <td className="py-4 px-4 text-right">
+                            {cat.pctChangeVsLastMonth !== null ? (
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1 font-mono-num font-bold text-xs px-2 py-0.5 rounded-full border",
+                                  isDown
+                                    ? "bg-success/15 text-success border-success/30"
+                                    : isUp
+                                    ? "bg-destructive/15 text-destructive border-destructive/30"
+                                    : "bg-muted text-muted-foreground border-border"
+                                )}
+                              >
+                                {isDown ? (
+                                  <ArrowDownRight className="h-3 w-3" />
+                                ) : isUp ? (
+                                  <ArrowUpRight className="h-3 w-3" />
+                                ) : (
+                                  <Minus className="h-3 w-3" />
+                                )}
+                                {Math.abs(cat.pctChangeVsLastMonth)}%
+                              </span>
+                            ) : (
+                              <span className="font-mono text-[10px] text-muted-foreground">N/A</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-6">
+                            <CategorySparkline history={historySnapshots} categoryName={cat.category} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </section>

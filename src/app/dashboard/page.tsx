@@ -116,7 +116,7 @@ export default function DashboardOverviewPage() {
           </div>
 
           <div className="h-60 w-full min-w-0">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={MOCK_SAVINGS_HISTORY} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <defs>
                   <linearGradient id="savedGradient" x1="0" y1="0" x2="0" y2="1">
@@ -128,16 +128,40 @@ export default function DashboardOverviewPage() {
                 <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--card)",
-                    borderColor: "var(--border)",
-                    borderRadius: "6px",
-                    fontSize: "12px",
-                    color: "var(--foreground)"
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload || !payload.length) return null;
+                    const val = payload[0].value;
+                    return (
+                      <div className="rounded-xl border border-emerald-500/40 bg-card/95 px-3 py-2 shadow-xl backdrop-blur-md transition-all duration-200 ease-out animate-in fade-in-50 zoom-in-95 pointer-events-none">
+                        <p className="font-mono-num text-[10px] uppercase font-bold text-muted-foreground">{label}</p>
+                        <p className="font-display font-mono-num text-xs font-bold text-success mt-0.5">
+                          Savings: {formatCurrency(val as number)}
+                        </p>
+                      </div>
+                    );
                   }}
-                  formatter={(val) => [formatCurrency(val as number), "Saved"]}
+                  cursor={{ stroke: "#22c55e", strokeWidth: 1.5, strokeDasharray: "3 3", opacity: 0.6 }}
+                  wrapperStyle={{ outline: "none", zIndex: 30 }}
+                  animationDuration={200}
+                  animationEasing="ease-out"
                 />
-                <Area type="monotone" dataKey="saved" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#savedGradient)" />
+                <Area
+                  type="monotone"
+                  dataKey="saved"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#savedGradient)"
+                  animationDuration={400}
+                  animationEasing="ease-out"
+                  activeDot={{
+                    r: 6,
+                    fill: "#22c55e",
+                    stroke: "#ffffff",
+                    strokeWidth: 2,
+                    className: "transition-all duration-150 ease-out",
+                  }}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>

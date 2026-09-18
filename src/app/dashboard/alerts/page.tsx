@@ -290,10 +290,10 @@ export default function AlertsPage() {
       {/* MODAL 1: Create Alert */}
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <Card className="w-full max-w-md p-6 relative space-y-4 shadow-2xl border border-border animate-in fade-in-50">
+          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto p-6 relative space-y-4 shadow-2xl border border-border animate-in fade-in-50">
             <button
               onClick={() => setCreateOpen(false)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-md"
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-md min-h-[36px] min-w-[36px] flex items-center justify-center"
               aria-label="Close modal"
             >
               <X className="h-4 w-4" />
@@ -312,6 +312,7 @@ export default function AlertsPage() {
                   value={selectedProductId}
                   onChange={(e) => setSelectedProductId(e.target.value)}
                   aria-label="Select product for price alert"
+                  className="h-10 text-xs"
                 >
                   <option value="">Choose product...</option>
                   {INITIAL_PRODUCTS.map((p) => (
@@ -330,12 +331,12 @@ export default function AlertsPage() {
                   placeholder="e.g. 135000"
                   value={targetPrice}
                   onChange={(e) => setTargetPrice(e.target.value)}
-                  className="text-xs font-mono"
+                  className="text-xs font-mono h-10"
                   aria-label="Target price threshold in NPR"
                 />
               </div>
 
-              <Button type="submit" variant="primary" className="w-full font-bold gap-1.5">
+              <Button type="submit" variant="primary" className="w-full font-bold gap-1.5 min-h-[44px]">
                 <Bell className="h-4 w-4" />
                 <span>Start Tracking Alert</span>
               </Button>
@@ -347,10 +348,10 @@ export default function AlertsPage() {
       {/* MODAL 2: Edit Target Price */}
       {editOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <Card className="w-full max-w-sm p-6 relative space-y-4 shadow-2xl border border-border animate-in fade-in-50">
+          <Card className="w-full max-w-sm max-h-[90vh] overflow-y-auto p-6 relative space-y-4 shadow-2xl border border-border animate-in fade-in-50">
             <button
               onClick={() => setEditOpen(null)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-md"
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-md min-h-[36px] min-w-[36px] flex items-center justify-center"
               aria-label="Close edit modal"
             >
               <X className="h-4 w-4" />
@@ -370,12 +371,12 @@ export default function AlertsPage() {
                   placeholder="Enter target price..."
                   value={editPrice}
                   onChange={(e) => setEditPrice(e.target.value)}
-                  className="text-xs font-mono"
+                  className="text-xs font-mono h-10"
                   aria-label="New target price in NPR"
                 />
               </div>
 
-              <Button type="submit" variant="primary" className="w-full font-bold">
+              <Button type="submit" variant="primary" className="w-full font-bold min-h-[44px]">
                 <span>Save Changes</span>
               </Button>
             </form>
@@ -386,7 +387,7 @@ export default function AlertsPage() {
       {/* MODAL 3: Delete Confirmation */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <Card className="w-full max-w-sm p-6 space-y-4 shadow-2xl border border-border animate-in fade-in-50">
+          <Card className="w-full max-w-sm max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-2xl border border-border animate-in fade-in-50">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-destructive/15 text-destructive flex items-center justify-center shrink-0">
                 <AlertCircle className="h-5 w-5" />

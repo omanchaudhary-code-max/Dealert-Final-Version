@@ -93,6 +93,22 @@ export class NotificationService {
   async getUserNotifications(userId: string) {
     return notificationRepository.findByUserId(userId)
   }
+
+  async markAsRead(id: string, userId: string) {
+    return notificationRepository.markAsRead(id, userId)
+  }
+
+  async markAllAsRead(userId: string) {
+    return notificationRepository.markAllAsRead(userId)
+  }
+
+  async getUnreadCount(userId: string) {
+    return notificationRepository.countUnreadByUserId(userId)
+  }
+
+  async clearNotifications(userId: string) {
+    return notificationRepository.clearByUserId(userId)
+  }
 }
 
 export const notificationService = new NotificationService()

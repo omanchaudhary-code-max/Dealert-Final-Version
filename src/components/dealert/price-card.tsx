@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDownRight, Bell, LineChart } from "lucide-react";
+import { ArrowDownRight, Heart, LineChart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
@@ -55,10 +55,10 @@ export function PriceCard({ product }: ProductCardProps) {
           className={`absolute top-2.5 right-2.5 grid h-8 w-8 place-items-center rounded-xl glass-strong transition-colors cursor-pointer ${
             wish ? "text-primary bg-primary/10 border-primary/30" : "text-muted-foreground hover:text-foreground"
           }`}
-          aria-label="Toggle price alert"
-          title={wish ? "Price Alert Active" : "Set Price Alert"}
+          aria-label="Toggle wishlist item"
+          title={wish ? "In Wishlist" : "Add to Wishlist"}
         >
-          <Bell className={`h-4 w-4 ${wish ? "fill-current" : ""}`} />
+          <Heart className={`h-4 w-4 ${wish ? "fill-current text-primary" : ""}`} />
         </button>
       </div>
 

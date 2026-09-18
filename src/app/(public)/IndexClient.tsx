@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import heroImage from "@/assets/hero-dashboard.jpg";
 import {
   ArrowRight,
   Bell,
@@ -246,39 +247,37 @@ export function IndexClient() {
 
               {/* HERO VISUAL PREVIEW */}
               <div className="relative animate-fade-in-up [animation-delay:200ms]">
+                <div className="absolute -right-4 -top-6 hidden w-64 rounded-2xl glass-strong p-4 shadow-elevated sm:block z-20 border border-success/30">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-success">
+                    <ShieldCheck className="h-4 w-4" /> Verified seller
+                  </div>
+                  <p className="mt-1 text-sm font-medium text-foreground">Trust score 92/100</p>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full w-[92%] bg-gradient-success" />
+                  </div>
+                </div>
+
+                <div className="absolute -left-4 -bottom-6 hidden w-72 rounded-2xl glass-strong p-4 shadow-elevated sm:block animate-fade-in-up z-20 border border-border/50">
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-success">
+                      <TrendingDown className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">AirPods Pro hit all-time low</p>
+                      <p className="font-mono-num text-xs text-success">−27% · Rs 31,499</p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-primary/30 to-chart-2/30 blur-xl opacity-50" />
-                <div className="relative rounded-3xl border border-border/80 bg-card/90 p-6 shadow-elevated backdrop-blur space-y-6">
-                  <div className="flex items-center justify-between border-b border-border/60 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold">
-                        <TrendingDown className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <h3 className="font-display text-sm font-bold">Live Price Verification</h3>
-                        <p className="text-xs text-muted-foreground">Apple MacBook Air M3 (13-inch)</p>
-                      </div>
-                    </div>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-xs font-bold text-success border border-success/30">
-                      <Sparkles className="h-3 w-3" /> Real 11% Discount
-                    </span>
-                  </div>
-
-                  <PriceHistoryChart data={sampleHistory} height={200} />
-
-                  <div className="grid grid-cols-3 gap-3 pt-2 text-center text-xs">
-                    <div className="p-3 rounded-xl bg-muted/40 border border-border/40">
-                      <span className="text-[10px] text-muted-foreground uppercase font-mono block">Current Price</span>
-                      <span className="font-mono-num font-bold text-foreground">Rs 155,000</span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/40 border border-border/40">
-                      <span className="text-[10px] text-muted-foreground uppercase font-mono block">All-Time Low</span>
-                      <span className="font-mono-num font-bold text-success">Rs 150,000</span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/40 border border-border/40">
-                      <span className="text-[10px] text-muted-foreground uppercase font-mono block">Risk Tier</span>
-                      <span className="font-mono-num font-bold text-success">LOW (98/100)</span>
-                    </div>
-                  </div>
+                <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-card/90 shadow-elevated backdrop-blur">
+                  <img
+                    src={typeof heroImage === "string" ? heroImage : heroImage.src}
+                    alt="Live price tracking dashboard with historical charts and product alerts"
+                    width={1600}
+                    height={1024}
+                    className="h-full w-full object-cover rounded-3xl"
+                  />
                 </div>
               </div>
             </div>
@@ -288,7 +287,7 @@ export function IndexClient() {
         {/* METRICS */}
         <section className="border-b border-border/60 bg-muted/20 py-12">
           <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-10">
-            <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
               <StatCard label="Products Tracked" value="142,500+" trend="+1.2k this week" icon={CircleDollarSign} />
               <StatCard label="Price Checks Daily" value="38,400" trend="Real-time scraping" icon={History} />
               <StatCard label="Verified Savings" value="NPR 4.2M+" trend="In user purchases" icon={TrendingDown} />

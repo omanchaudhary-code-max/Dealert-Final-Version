@@ -175,10 +175,20 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         n.id === id ? { ...n, read: true } : n
       ),
     }))
+    try {
+      await fetch(`/api/notification/${encodeURIComponent(id)}`, { method: 'PATCH' })
+    } catch {
+      // Ignore API network errors in Zustand store fallback
+    }
   },
 
   clearNotifications: async () => {
     set({ notifications: [] })
+    try {
+      await fetch('/api/notification', { method: 'DELETE' })
+    } catch {
+      // Ignore API network errors in Zustand store fallback
+    }
   },
 
   updateProfile: async (data) => {

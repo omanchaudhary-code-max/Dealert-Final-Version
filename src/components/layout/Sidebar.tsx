@@ -124,10 +124,10 @@ export default function Sidebar() {
       {/* Toggle Collapse */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute top-6 -right-3 h-6 w-6 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center shadow-xs cursor-pointer transition-colors"
+        className="absolute top-6 -right-4 h-8 w-8 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center shadow-sm cursor-pointer transition-colors z-20"
         aria-label="Toggle sidebar collapse"
       >
-        {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
       </button>
     </aside>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, MouseEvent } from "react";
+import { useEffect, useState, useRef, MouseEvent, TouchEvent } from "react";
 import { formatCurrency } from "@/lib/format";
 import { Sparkles } from "lucide-react";
 
@@ -22,7 +22,18 @@ export function IndexChart({ onSelectMonth }: IndexChartProps) {
   const [data, setData] = useState<SnapshotHistoryPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [reducedMotion, setReducedMotion] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+      setReducedMotion(mediaQuery.matches);
+      const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+      mediaQuery.addEventListener("change", handler);
+      return () => mediaQuery.removeEventListener("change", handler);
+    }
+  }, []);
 
   useEffect(() => {
     fetch("/api/price-index?history=true")
@@ -98,13 +109,23 @@ export function IndexChart({ onSelectMonth }: IndexChartProps) {
   const pointsString = points.map((p) => `${p.x},${p.y}`).join(" ");
   const fillPoints = `0,200 ${pointsString} 600,200`;
 
-  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+  const calculateClosestIndex = (clientX: number) => {
     if (!containerRef.current || points.length === 0) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
+    const mouseX = clientX - rect.left;
     const pct = Math.max(0, Math.min(1, mouseX / rect.width));
     const closestIdx = Math.round(pct * (points.length - 1));
     setHoveredIndex(closestIdx);
+  };
+
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    calculateClosestIndex(e.clientX);
+  };
+
+  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    if (e.touches && e.touches.length > 0) {
+      calculateClosestIndex(e.touches[0].clientX);
+    }
   };
 
   const activePoint = hoveredIndex !== null ? points[hoveredIndex] : null;
@@ -145,6 +166,9 @@ export function IndexChart({ onSelectMonth }: IndexChartProps) {
         ref={containerRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoveredIndex(null)}
+        onTouchStart={handleTouchMove}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={() => setHoveredIndex(null)}
         onClick={() => {
           if (activePoint && onSelectMonth) {
             onSelectMonth(activePoint.pt.month);
@@ -166,7 +190,7 @@ export function IndexChart({ onSelectMonth }: IndexChartProps) {
           <line x1="0" y1="160" x2="600" y2="160" stroke="var(--border)" strokeOpacity="0.25" strokeDasharray="4 4" />
 
           {/* Fill Area */}
-          <polygon points={fillPoints} fill="url(#indexGradient)" />
+          <polygon points={fillPoints} fill="url(#indexGradient)" className={reducedMotion ? "" : "transition-all duration-300 ease-out"} />
 
           {/* Line Path */}
           <polyline
@@ -176,6 +200,7 @@ export function IndexChart({ onSelectMonth }: IndexChartProps) {
             strokeLinecap="round"
             strokeLinejoin="round"
             points={pointsString}
+            className={reducedMotion ? "" : "transition-all duration-300 ease-out"}
           />
 
           {/* Static Point Markers */}
@@ -191,7 +216,7 @@ export function IndexChart({ onSelectMonth }: IndexChartProps) {
 
           {/* Hover Guide Line & Active Pulse Point */}
           {activePoint && (
-            <g>
+            <g className={reducedMotion ? "" : "transition-all duration-150 ease-out"}>
               <line
                 x1={activePoint.x}
                 y1="0"
@@ -201,6 +226,7 @@ export function IndexChart({ onSelectMonth }: IndexChartProps) {
                 strokeWidth="1.5"
                 strokeDasharray="3 3"
                 opacity="0.8"
+                className={reducedMotion ? "" : "transition-all duration-150 ease-out"}
               />
               <circle
                 cx={activePoint.x}
@@ -209,13 +235,14 @@ export function IndexChart({ onSelectMonth }: IndexChartProps) {
                 fill="var(--background)"
                 stroke="#3b82f6"
                 strokeWidth="3"
-                className="animate-pulse"
+                className={reducedMotion ? "" : "animate-pulse transition-all duration-150 ease-out"}
               />
               <circle
                 cx={activePoint.x}
                 cy={activePoint.y}
                 r="3"
                 fill="#3b82f6"
+                className={reducedMotion ? "" : "transition-all duration-150 ease-out"}
               />
             </g>
           )}
@@ -224,7 +251,9 @@ export function IndexChart({ onSelectMonth }: IndexChartProps) {
         {/* Floating Tooltip Card */}
         {activePoint && (
           <div
-            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-xl border border-primary/40 bg-card/95 p-2.5 shadow-elevated backdrop-blur-md transition-all duration-75 min-w-[140px]"
+            className={`pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-xl border border-primary/40 bg-card/95 p-2.5 shadow-elevated backdrop-blur-md min-w-[140px] ${
+              reducedMotion ? "" : "transition-all duration-200 ease-out animate-in fade-in-50 zoom-in-95"
+            }`}
             style={{
               left: `${(activePoint.x / 600) * 100}%`,
               top: `${Math.max(15, (activePoint.y / 200) * 100 - 8)}%`,

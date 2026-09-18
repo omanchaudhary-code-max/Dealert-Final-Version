@@ -63,6 +63,7 @@ model NotificationLog {
   alertId String
   email   String
   message String?
+  isRead  Boolean            @default(false)
   status  NotificationStatus @default(PENDING)
   sentAt  DateTime           @default(now())
   alert   Alert              @relation(fields: [alertId], references: [id], onDelete: Cascade)

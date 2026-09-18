@@ -166,22 +166,24 @@ function FakePageDetectorContent() {
           {/* Search Box */}
           <form
             onSubmit={handleDetect}
-            className="mt-8 mx-auto flex max-w-2xl items-center gap-2 rounded-2xl border border-border/60 bg-card/90 p-2 shadow-elevated glass-strong"
+            className="mt-8 mx-auto flex flex-col sm:flex-row max-w-2xl items-stretch sm:items-center gap-2 rounded-2xl border border-border/60 bg-card/90 p-2 shadow-elevated glass-strong"
           >
-            <div className="grid h-10 w-10 shrink-0 place-items-center text-muted-foreground">
-              <ShieldCheck className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-2 flex-1 px-2">
+              <div className="grid h-10 w-10 shrink-0 place-items-center text-muted-foreground">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+              </div>
+              <Input
+                type="text"
+                placeholder="Paste seller URL or store domain e.g. https://daraz.com.np"
+                className="h-11 border-0 bg-transparent text-xs sm:text-sm shadow-none focus-visible:ring-0 w-full"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+              />
             </div>
-            <Input
-              type="text"
-              placeholder="Paste seller URL or store domain e.g. https://daraz.com.np"
-              className="h-11 border-0 bg-transparent text-sm sm:text-base shadow-none focus-visible:ring-0"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-            />
             <Button
               type="submit"
               disabled={loading}
-              className="shadow-glow font-semibold rounded-xl gap-2 h-11 px-6 shrink-0"
+              className="shadow-glow font-semibold rounded-xl gap-2 min-h-[44px] h-11 px-6 w-full sm:w-auto shrink-0"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

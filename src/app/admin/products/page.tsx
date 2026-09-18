@@ -339,7 +339,7 @@ export default function AdminProductsPage() {
       {/* MODAL 1: Add Product */}
       {isAddOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in-50 zoom-in-95">
+          <div className="bg-card border border-border rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in-50 zoom-in-95 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold flex items-center gap-2 text-foreground">
                 <Plus className="h-4 w-4 text-primary" />
@@ -448,7 +448,7 @@ export default function AdminProductsPage() {
       {/* MODAL 2: Simulate Price Drop */}
       {simulateProduct && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in-50 zoom-in-95">
+          <div className="bg-card border border-border rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in-50 zoom-in-95 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold flex items-center gap-2 text-foreground">
                 <FlaskConical className="h-4 w-4 text-amber-500" />

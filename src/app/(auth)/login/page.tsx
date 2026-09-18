@@ -77,7 +77,7 @@ function LoginForm() {
 
       <div className="grid min-h-[calc(100vh-73px)] lg:grid-cols-[1fr_1.1fr]">
         {/* Left Form Side */}
-        <div className="order-2 flex items-center justify-center p-6 sm:p-12 lg:order-1">
+        <div className="order-1 flex items-center justify-center p-6 sm:p-12 lg:order-1">
           <div className="w-full max-w-md space-y-6">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/60 px-3.5 py-1 font-mono-num text-[11px] uppercase tracking-wider text-muted-foreground glass backdrop-blur">
@@ -225,7 +225,7 @@ function LoginForm() {
         </div>
 
         {/* Right Hero / Showcase Side */}
-        <aside className="relative order-1 overflow-hidden border-b border-border/60 bg-gradient-hero p-8 lg:order-2 lg:border-b-0 lg:border-l lg:p-12 flex flex-col justify-between">
+        <aside className="relative order-2 overflow-hidden border-t lg:border-t-0 border-border/60 bg-gradient-hero p-8 lg:order-2 lg:border-l lg:p-12 flex flex-col justify-between">
           <div className="absolute inset-0 bg-grid opacity-[0.18]" aria-hidden />
           <div
             className="absolute -top-32 -right-32 h-[28rem] w-[28rem] rounded-full bg-primary/20 blur-3xl pointer-events-none"
@@ -246,7 +246,7 @@ function LoginForm() {
             </div>
 
             {/* Metrics */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Metric icon={Users} v="10,000+" l="Active Users" />
               <Metric icon={TrendingDown} v="Rs 14M+" l="Saved Annually" />
               <Metric icon={ShieldCheck} v="500K+" l="Tracked Items" />

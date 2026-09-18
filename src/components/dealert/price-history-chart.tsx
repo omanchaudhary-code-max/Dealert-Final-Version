@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, MouseEvent } from "react";
+import { useState, useMemo, useRef, useEffect, MouseEvent, TouchEvent } from "react";
 import { formatCurrency } from "@/lib/format";
 
 interface PriceHistoryChartProps {
@@ -10,7 +10,18 @@ interface PriceHistoryChartProps {
 
 export function PriceHistoryChart({ data }: PriceHistoryChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [reducedMotion, setReducedMotion] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+      setReducedMotion(mediaQuery.matches);
+      const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+      mediaQuery.addEventListener("change", handler);
+      return () => mediaQuery.removeEventListener("change", handler);
+    }
+  }, []);
 
   const chartPoints = useMemo(() => {
     if (!data || data.length === 0) {
@@ -38,13 +49,23 @@ export function PriceHistoryChart({ data }: PriceHistoryChartProps) {
   const pointsString = points.map((p) => `${p.x},${p.y}`).join(" ");
   const fillString = `0,150 ${pointsString} 500,150`;
 
-  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+  const calculateClosestIndex = (clientX: number) => {
     if (!containerRef.current || points.length === 0) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
+    const mouseX = clientX - rect.left;
     const pct = Math.max(0, Math.min(1, mouseX / rect.width));
     const closestIdx = Math.round(pct * (points.length - 1));
     setHoveredIndex(closestIdx);
+  };
+
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    calculateClosestIndex(e.clientX);
+  };
+
+  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    if (e.touches && e.touches.length > 0) {
+      calculateClosestIndex(e.touches[0].clientX);
+    }
   };
 
   const activePoint = hoveredIndex !== null ? points[hoveredIndex] : null;
@@ -61,9 +82,9 @@ export function PriceHistoryChart({ data }: PriceHistoryChartProps) {
             </span>
           </div>
         ) : (
-          <span className="text-muted-foreground text-[11px] italic">
-            💡 Hover over the graph line to inspect exact prices
-          </span>
+          <div className="text-muted-foreground transition-opacity">
+            💡 Hover or tap on the graph line to inspect exact prices
+          </div>
         )}
       </div>
 
@@ -72,6 +93,9 @@ export function PriceHistoryChart({ data }: PriceHistoryChartProps) {
         ref={containerRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoveredIndex(null)}
+        onTouchStart={handleTouchMove}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={() => setHoveredIndex(null)}
         className="relative h-44 w-full cursor-crosshair touch-none select-none"
       >
         <svg viewBox="0 0 500 150" className="h-full w-full overflow-visible" preserveAspectRatio="none">
@@ -87,7 +111,7 @@ export function PriceHistoryChart({ data }: PriceHistoryChartProps) {
           <line x1="0" y1="90" x2="500" y2="90" stroke="var(--border)" strokeOpacity="0.3" strokeDasharray="4 4" />
 
           {/* Area Fill */}
-          <polygon points={fillString} fill="url(#priceGradient)" />
+          <polygon points={fillString} fill="url(#priceGradient)" className={reducedMotion ? "" : "transition-all duration-300 ease-out"} />
 
           {/* Line Path */}
           <polyline
@@ -97,11 +121,12 @@ export function PriceHistoryChart({ data }: PriceHistoryChartProps) {
             strokeLinecap="round"
             strokeLinejoin="round"
             points={pointsString}
+            className={reducedMotion ? "" : "transition-all duration-300 ease-out"}
           />
 
           {/* Hover indicator line & dot */}
           {activePoint && (
-            <g>
+            <g className={reducedMotion ? "" : "transition-all duration-150 ease-out"}>
               <line
                 x1={activePoint.x}
                 y1="0"
@@ -111,6 +136,7 @@ export function PriceHistoryChart({ data }: PriceHistoryChartProps) {
                 strokeWidth="1.5"
                 strokeDasharray="3 3"
                 opacity="0.8"
+                className={reducedMotion ? "" : "transition-all duration-150 ease-out"}
               />
               <circle
                 cx={activePoint.x}
@@ -119,13 +145,14 @@ export function PriceHistoryChart({ data }: PriceHistoryChartProps) {
                 fill="var(--background)"
                 stroke="var(--primary)"
                 strokeWidth="3"
-                className="animate-pulse"
+                className={reducedMotion ? "" : "animate-pulse transition-all duration-150 ease-out"}
               />
               <circle
                 cx={activePoint.x}
                 cy={activePoint.y}
                 r="3"
                 fill="var(--primary)"
+                className={reducedMotion ? "" : "transition-all duration-150 ease-out"}
               />
             </g>
           )}
@@ -134,10 +161,12 @@ export function PriceHistoryChart({ data }: PriceHistoryChartProps) {
         {/* Hover Tooltip Popup Box */}
         {activePoint && (
           <div
-            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-xl border border-primary/40 bg-card/95 px-3 py-1.5 shadow-elevated backdrop-blur-md transition-all duration-75"
+            className={`pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-xl border border-primary/40 bg-card/95 px-3 py-1.5 shadow-elevated backdrop-blur-md ${
+              reducedMotion ? "" : "transition-all duration-200 ease-out animate-in fade-in-50 zoom-in-95"
+            }`}
             style={{
               left: `${(activePoint.x / 500) * 100}%`,
-              top: `${Math.max(20, (activePoint.y / 150) * 100 - 10)}%`,
+              top: `${Math.max(18, (activePoint.y / 150) * 100 - 8)}%`,
             }}
           >
             <p className="font-mono-num text-[10px] text-muted-foreground leading-none">

@@ -74,6 +74,16 @@ export class AdminRepository {
     }
   }
 
+  async getDashboardCounts() {
+    const db = await this.getDb()
+    const totalProducts = await db.collection('products').countDocuments({ is_delisted: { $ne: true } })
+    const status = await this.getCrawlStatus()
+    return {
+      totalProducts,
+      status,
+    }
+  }
+
   async getCrawlRuns(limit = 20) {
     const db = await this.getDb()
     const runs = await db
