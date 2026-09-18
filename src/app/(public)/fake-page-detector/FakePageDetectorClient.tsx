@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
+import { useToastStore } from "@/hooks/useToast";
 import type { TrustCheckResult } from "@/types/trust";
 
 function FakePageDetectorContent() {
@@ -41,6 +42,12 @@ function FakePageDetectorContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<TrustCheckResult | null>(null);
+  const [quota, setQuota] = useState<{
+    plan: string;
+    used: number;
+    limit: number | null;
+    remaining: number | null;
+  } | null>(null);
 
   // Report modal / form state
   const [showReportForm, setShowReportForm] = useState(false);
@@ -48,6 +55,22 @@ function FakePageDetectorContent() {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportSuccess, setReportSuccess] = useState<string | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
+
+  const fetchQuota = async () => {
+    try {
+      const res = await fetch("/api/fake-page-check");
+      if (res.ok) {
+        const data = await res.json();
+        setQuota(data);
+      }
+    } catch {
+      // Ignore quota fetch error
+    }
+  };
+
+  useEffect(() => {
+    fetchQuota();
+  }, [isAuthenticated]);
 
   const runDetection = async (targetUrl: string) => {
     if (!targetUrl.trim()) return;
@@ -68,9 +91,26 @@ function FakePageDetectorContent() {
 
       const data = await res.json();
       if (!res.ok) {
+        if (data.limitReached || res.status === 403 || data.error?.includes("Free tier limit")) {
+          useToastStore.getState().showToast({
+            message: "You've used all 3 free trust checks today. Upgrade to Pro for unlimited checks.",
+            actionUrl: "/pricing",
+            actionLabel: "Upgrade to Pro",
+            variant: "warning",
+          });
+          setQuota({ plan: "FREE", used: 3, limit: 3, remaining: 0 });
+        } else {
+          useToastStore.getState().showToast({
+            message: data.error || "Failed to perform trust check",
+            variant: "destructive",
+          });
+        }
         throw new Error(data.error || "Failed to perform trust check");
       }
 
+      if (data.quota) {
+        setQuota(data.quota);
+      }
       setResult(data);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
@@ -193,6 +233,32 @@ function FakePageDetectorContent() {
               <span>Check Trust</span>
             </Button>
           </form>
+
+          {quota && (
+            <div className="mt-3 flex items-center justify-center gap-1.5 text-xs font-mono-num">
+              {quota.plan === "PRO" || quota.plan === "ENTERPRISE" ? (
+                <span className="inline-flex items-center gap-1 text-success font-semibold border border-success/30 bg-success/10 px-3 py-1 rounded-full">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Pro Tier — Unlimited Trust Checks
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground border border-border/60 bg-card/60 px-3 py-1 rounded-full glass">
+                  <Shield className="h-3.5 w-3.5 text-primary" />
+                  <span>
+                    <strong>{quota.remaining ?? 0} of {quota.limit ?? 3}</strong> free checks remaining today
+                  </span>
+                  {quota.remaining === 0 && (
+                    <Link
+                      href="/pricing"
+                      className="ml-1 text-primary hover:underline font-bold text-xs"
+                    >
+                      • Upgrade to Pro
+                    </Link>
+                  )}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Preset Samples */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">

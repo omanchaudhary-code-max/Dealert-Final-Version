@@ -19,6 +19,14 @@ export interface CommunityReportDoc {
   reportedAt: Date
 }
 
+export interface FakePageCheckDoc {
+  _id?: string
+  userId?: string | null
+  ip?: string | null
+  url: string
+  checkedAt: Date
+}
+
 export const SHARED_HOSTING_DOMAINS = [
   'facebook.com',
   'www.facebook.com',
@@ -165,6 +173,43 @@ export class SellerRepository {
       return await col.countDocuments({ userId, reportedAt: { $gte: since } })
     } catch {
       return 0
+    }
+  }
+
+  private async fakePageChecks() {
+    const db = await getMongoDb()
+    return db.collection<FakePageCheckDoc>('fake_page_checks')
+  }
+
+  async countRecentFakePageChecks(userId: string | null, ip: string | null, sinceHours = 24): Promise<number> {
+    try {
+      const col = await this.fakePageChecks()
+      const since = new Date(Date.now() - sinceHours * 60 * 60 * 1000)
+      const orConditions: Record<string, any>[] = []
+      if (userId) orConditions.push({ userId })
+      if (ip) orConditions.push({ ip })
+      if (orConditions.length === 0) return 0
+
+      return await col.countDocuments({
+        checkedAt: { $gte: since },
+        $or: orConditions,
+      })
+    } catch {
+      return 0
+    }
+  }
+
+  async logFakePageCheck(userId: string | null, ip: string | null, url: string): Promise<void> {
+    try {
+      const col = await this.fakePageChecks()
+      await col.insertOne({
+        userId: userId ?? null,
+        ip: ip ?? null,
+        url,
+        checkedAt: new Date(),
+      })
+    } catch (err) {
+      console.warn('Failed to log fake page check:', err instanceof Error ? err.message : err)
     }
   }
 }
